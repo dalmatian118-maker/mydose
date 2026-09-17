@@ -1,0 +1,21 @@
+{
+  "name": "viral-shorts-studio",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Generates short-form video scripts, renders them via Hypit.ai (BYOK), and composes them with subtitles and background music.",
+  "bin": {
+    "shorts": "./src/cli.js"
+  },
+  "scripts": {
+    "generate": "node src/cli.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0",
+    "fluent-ffmpeg": "^2.1.3"
+  }
+}
