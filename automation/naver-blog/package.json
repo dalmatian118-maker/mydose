@@ -1,0 +1,14 @@
+{
+  "name": "naver-blog-automation",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.6.0"
+  },
+  "scripts": {
+    "auth:init": "node scripts/getInitialToken.mjs",
+    "categories": "node scripts/listCategories.mjs",
+    "publish": "node src/publish.mjs"
+  }
+}

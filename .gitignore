@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Naver blog automation secrets
+automation/naver-blog/.env

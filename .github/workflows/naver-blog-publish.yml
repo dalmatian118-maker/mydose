@@ -1,0 +1,28 @@
+name: Naver Blog Auto Publish
+
+on:
+  schedule:
+    # 매일 00:00 UTC = 한국시간(KST) 09:00
+    - cron: "0 0 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Publish to Naver Blog
+        working-directory: automation/naver-blog
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          NAVER_REFRESH_TOKEN: ${{ secrets.NAVER_REFRESH_TOKEN }}
+          NAVER_CATEGORY_NO: ${{ secrets.NAVER_CATEGORY_NO }}
+          NAVER_POST_OPEN_TYPE: ${{ secrets.NAVER_POST_OPEN_TYPE }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: node src/publish.mjs
