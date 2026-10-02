@@ -3,3 +3,4 @@ node_modules/
 data/
 assets/fonts/
 .DS_Store
+class-settings.json

@@ -4,14 +4,15 @@ import { providerStatus } from "../config.js";
 import { probeDuration } from "../lib/ffmpeg.js";
 import { projectDir, save } from "../store.js";
 import { prepareSceneImage } from "./images.js";
-import { prepareSceneVoice, normalizeVoice, resolveElevenLabsVoice, describeVoice } from "./voice.js";
+import { prepareSceneVoice, normalizeVoice, resolveElevenLabsVoice, describeVoice, estimateSpeechSeconds } from "./voice.js";
+import { fetchStock, stockAvailable } from "./stock.js";
 import { planTiming } from "./timing.js";
 import { clipFromImage, clipFromVideo } from "./video.js";
 import { buildAss } from "./subtitles.js";
 import { compose, makeCover } from "./compose.js";
 
 const STEPS = [
-  ["images", "이미지 준비"],
+  ["images", "화면 준비 (사진·스톡 영상·이미지)"],
   ["voice", "목소리 생성"],
   ["video", "장면 영상 만들기"],
   ["subtitles", "자막 생성"],
@@ -43,7 +44,6 @@ export async function renderProject(project) {
   project.output = null;
   project.warnings = [];
   project.steps = STEPS.map(([key, label]) => ({ key, label, status: "pending", detail: "" }));
-  if (providers.image === "placeholder") project.warnings.push("이미지 생성 API 키가 없어 AI 이미지 대신 색상 카드로 만들어요. (업로드한 사진은 그대로 사용)");
   if (providers.voice === "silent") project.warnings.push("목소리 생성 API 키(ElevenLabs 또는 OpenAI)가 없어 무음 + 자막 버전으로 만들어요.");
   save(project);
 
@@ -58,19 +58,42 @@ export async function renderProject(project) {
   const scenes = script.scenes;
   const mediaById = Object.fromEntries(project.media.map((m) => [m.id, m]));
 
-  // 1) 이미지: 업로드한 사진/영상이 있으면 그대로, 없으면 생성
+  // 1) 화면: 직접 올린 사진·영상 > 무료 스톡 영상 > AI 이미지 > 색상 카드
   step("images", "running");
   let done = 0;
+  const usedStock = new Set();
+  const credits = [];
+  const fallbackScenes = [];
+  const placeholderScenes = [];
   const visuals = await mapLimit(scenes, 3, async (scene, i) => {
     const media = mediaById[scene.media_id];
     let result;
     if (media?.kind === "video") result = { video: media.file, image: media.previewPath };
     else if (media?.kind === "image") result = { image: media.file };
-    else result = { image: await prepareSceneImage({ scene, index: i, visualStyle: script.visual_style, outPath: path.join(dir, `scene${i + 1}.png`) }) };
+    else {
+      if (scene.visual === "stock" && stockAvailable()) {
+        const stock = await fetchStock({
+          query: scene.stock_query,
+          minSeconds: estimateSpeechSeconds(scene.narration),
+          used: usedStock,
+          outBase: path.join(dir, `stock${i + 1}`),
+        });
+        if (stock) {
+          result = stock.kind === "video" ? { video: stock.file } : { image: stock.file };
+          credits.push({ scene: i + 1, ...stock.credit });
+        } else fallbackScenes.push(i + 1);
+      }
+      if (!result) {
+        if (providers.image === "placeholder") placeholderScenes.push(i + 1);
+        result = { image: await prepareSceneImage({ scene, index: i, visualStyle: script.visual_style, outPath: path.join(dir, `scene${i + 1}.png`) }) };
+      }
+    }
     step("images", "running", `${++done}/${scenes.length}`);
     return result;
   });
-  step("images", "done", `${scenes.length}장`);
+  if (fallbackScenes.length) project.warnings.push(`${fallbackScenes.join(", ")}번 장면은 맞는 스톡 영상을 찾지 못해 다른 화면으로 채웠어요. 검색어를 바꿔보세요.`);
+  if (placeholderScenes.length) project.warnings.push(`${placeholderScenes.join(", ")}번 장면은 색상 카드로 채웠어요. 직접 찍은 사진을 올리거나 '무료 스톡 영상'을 선택해보세요.`);
+  step("images", "done", `${scenes.length}장면${credits.length ? ` · 스톡 ${credits.length}` : ""}`);
 
   // 2) 목소리
   step("voice", "running");
@@ -80,7 +103,8 @@ export async function renderProject(project) {
     project.voice = voice;
   }
   done = 0;
-  const voices = await mapLimit(scenes, 3, async (scene, i) => {
+  // ElevenLabs는 요금제별 동시 요청 수가 작아서 학생 한 명당 2개씩만 보냅니다.
+  const voices = await mapLimit(scenes, 2, async (scene, i) => {
     const out = await prepareSceneVoice({
       text: scene.narration,
       prevText: scenes[i - 1]?.narration,
@@ -127,7 +151,8 @@ export async function renderProject(project) {
   const duration = await probeDuration(video);
   step("compose", "done", `${duration.toFixed(1)}초`);
 
-  project.output = { video, cover, duration, scenes: visuals.map((v) => ({ image: v.image })) };
+  credits.sort((a, b) => a.scene - b.scene);
+  project.output = { video, cover, duration, credits, scenes: visuals.map((v) => ({ image: v.image })) };
   project.stage = "done";
   save(project);
 }

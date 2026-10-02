@@ -21,6 +21,7 @@
     <form method="dialog" id="settingsForm">
       <h2>API 키 설정</h2>
       <p class="hint">키는 <b>이 컴퓨터</b>(data/settings.json)에만 저장되고 다른 곳으로 보내지지 않아요. 비워두면 기존 값이 유지돼요.</p>
+      <p class="class-note hidden" id="classNote">📦 선생님이 나눠준 반 공용 설정을 쓰고 있어요. 따로 입력하지 않아도 돼요.</p>
       <label>Claude (대본 · 필수) <span class="saved" data-saved="anthropicKey"></span>
         <input name="anthropicKey" type="password" autocomplete="off" placeholder="sk-ant-..." />
       </label>
@@ -30,9 +31,23 @@
       <label>ElevenLabs 목소리 모델
         <select name="elevenlabsModel"></select>
       </label>
-      <label>OpenAI (AI 이미지 · 목소리 대체) <span class="saved" data-saved="openaiKey"></span>
+      <label>Pexels (무료 스톡 영상 · 추천) <span class="saved" data-saved="pexelsKey"></span>
+        <input name="pexelsKey" type="password" autocomplete="off" placeholder="pexels.com/api 에서 무료 발급" />
+      </label>
+      <label>Pixabay (무료 스톡 영상 · 대체) <span class="saved" data-saved="pixabayKey"></span>
+        <input name="pixabayKey" type="password" autocomplete="off" placeholder="pixabay.com/api/docs 에서 무료 발급" />
+      </label>
+      <label>OpenAI (AI 이미지 · 목소리 대체, 선택) <span class="saved" data-saved="openaiKey"></span>
         <input name="openaiKey" type="password" autocomplete="off" placeholder="sk-..." />
       </label>
+      <details class="tips">
+        <summary>👩‍🏫 반 전체에 나눠주기 / 받은 설정 불러오기</summary>
+        <p><b>선생님</b>: 키를 저장한 뒤 아래 버튼으로 <code>class-settings.json</code>을 받아요. 그 파일을 프로그램 폴더(start-windows.bat 옆)에 넣고 폴더째 나눠주면, 학생들은 키를 입력하지 않아도 돼요.</p>
+        <a class="ghost small" href="/api/settings/class-export" download="class-settings.json">📦 반 배포용 설정 파일 받기</a>
+        <p><b>학생</b>: 파일만 따로 받았다면 여기서 불러와요.</p>
+        <label class="ghost small file-btn">📂 설정 파일 불러오기<input type="file" id="importSettings" accept=".json,application/json" hidden /></label>
+        <p class="hint">⚠️ 파일에는 키가 그대로 들어 있어요. 각 서비스에서 사용 한도를 걸어두고, 수업이 끝나면 키를 삭제하세요.</p>
+      </details>
       <div class="actions">
         <button type="button" class="ghost" id="settingsCancel">닫기</button>
         <button type="submit" class="primary" value="save">저장</button>
@@ -167,6 +182,11 @@
           <textarea id="captionText" rows="8"></textarea>
           <button class="ghost" id="copyBtn">문구 복사</button>
           <ul id="warnings2" class="warnings"></ul>
+          <div id="creditsBox" class="hidden">
+            <h3>스톡 영상 출처</h3>
+            <ul id="credits" class="credits"></ul>
+            <p class="hint">무료로 쓸 수 있지만, 게시글에 출처를 적어주면 좋아요.</p>
+          </div>
           <button class="ghost" id="backToScript">← 대본 고쳐서 다시 만들기</button>
           <button class="ghost" id="newProject">새 릴스 시작</button>
         </div>
@@ -195,9 +215,10 @@
             <option value="static">거의 고정</option>
           </select>
         </label>
-        <label>화면 소스<select data-f="media_id"></select></label>
+        <label>화면 소스<select class="source"></select></label>
       </div>
-      <label class="prompt">이미지 생성 프롬프트 (영어)<textarea data-f="image_prompt" rows="2"></textarea></label>
+      <label class="stock-query">스톡 영상 검색어 (영어 추천)<input data-f="stock_query" maxlength="100" /></label>
+      <label class="prompt">AI 이미지 프롬프트 (영어)<textarea data-f="image_prompt" rows="2"></textarea></label>
     </article>
   </template>
 

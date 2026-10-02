@@ -10,7 +10,8 @@ let clientKey;
 function getClient(apiKey) {
   // 설정 화면에서 키를 바꾸면 새 클라이언트를 만듭니다.
   if (!client || clientKey !== apiKey) {
-    client = new Anthropic({ apiKey });
+    // 반 전체가 동시에 누르면 요청 한도(429)에 걸릴 수 있어 SDK 자동 재시도 횟수를 늘립니다.
+    client = new Anthropic({ apiKey, maxRetries: 8 });
     clientKey = apiKey;
   }
   return client;
@@ -67,7 +68,16 @@ export async function generateScript(brief, media) {
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
   });
-  const message = await stream.finalMessage();
+  let message;
+  try {
+    message = await stream.finalMessage();
+  } catch (err) {
+    if (err instanceof Anthropic.RateLimitError || err instanceof Anthropic.InternalServerError) {
+      throw new Error("지금 반 전체 요청이 몰려 있어요. 1~2분 뒤에 '대본 다시 쓰기'를 눌러주세요.");
+    }
+    if (err instanceof Anthropic.AuthenticationError) throw new Error("Claude API 키가 올바르지 않아요. ⚙️ 설정을 확인해주세요.");
+    throw err;
+  }
 
   if (message.stop_reason === "refusal") {
     throw new Error("이 스토리로는 대본을 만들 수 없다는 응답을 받았어요. 내용을 조금 바꿔서 다시 시도해주세요.");

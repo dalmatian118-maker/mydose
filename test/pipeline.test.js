@@ -65,3 +65,49 @@ test("목소리 설정은 잘못된 값을 기본값으로 고치고 속도를 0
   assert.equal(v.speed, 1.2);
   assert.equal(describeVoice(v), "50대 이상 여성, 차분하게");
 });
+
+import http from "node:http";
+import { fetchWithRetry } from "../server/lib/http.js";
+import { pickSettings } from "../server/config.js";
+
+test("429 응답이면 잠시 기다렸다가 다시 시도한다", async () => {
+  let calls = 0;
+  const server = http.createServer((_req, res) => {
+    calls++;
+    if (calls < 3) {
+      res.statusCode = 429;
+      res.setHeader("retry-after", "0.05");
+      return res.end("busy");
+    }
+    res.end("ok");
+  });
+  await new Promise((r) => server.listen(0, r));
+  try {
+    const res = await fetchWithRetry(`http://127.0.0.1:${server.address().port}/`, {}, { label: "test", maxWaitMs: 5000 });
+    assert.equal(await res.text(), "ok");
+    assert.equal(calls, 3);
+  } finally {
+    server.close();
+  }
+});
+
+test("시간 단위로 기다리라는 429는 기다리지 않고 바로 실패한다", async () => {
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 429;
+    res.setHeader("retry-after", "3600");
+    res.end("hourly limit");
+  });
+  await new Promise((r) => server.listen(0, r));
+  try {
+    const started = Date.now();
+    await assert.rejects(fetchWithRetry(`http://127.0.0.1:${server.address().port}/`, {}, { label: "test", maxDelayMs: 2000 }), /HTTP 429/);
+    assert.ok(Date.now() - started < 1000);
+  } finally {
+    server.close();
+  }
+});
+
+test("설정 파일에서는 알려진 키만 가져온다", () => {
+  const picked = pickSettings({ anthropicKey: " sk-ant-1 ", pexelsKey: "", evil: "x", elevenlabsModel: "unknown" });
+  assert.deepEqual(picked, { anthropicKey: "sk-ant-1" });
+});

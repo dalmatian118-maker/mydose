@@ -58,7 +58,8 @@ export const SYSTEM_PROMPT = `당신은 한국 인스타그램 릴스 전문 숏
 
 # 5. 화면(비주얼)
 - 학생이 올린 사진/영상(media_id)이 있으면 그 장면에 가장 어울리는 곳에 우선 배치한다 (실제 사진이 AI 이미지보다 신뢰를 준다). 같은 미디어를 두 번 써도 된다.
-- 그 외 장면은 image_prompt로 생성한다. image_prompt는 영어로, 세로 9:16 구도, 사람이 찍은 듯한 자연스러운 사진 느낌(handheld, natural light, candid). 화면 안에 글자를 넣지 말 것(no text, no letters, no logo).
+- 그 외 장면은 무료 스톡 영상으로 채우는 것이 기본이다. stock_query에 스톡 영상 사이트(Pexels)에서 실제로 검색될 만한 영어 키워드 2~4단어를 쓴다 (예: "hands making soap", "morning kitchen window"). 너무 구체적인 고유명사·브랜드명·한국 지명은 검색이 안 되니 일반적인 장면으로 바꾼다.
+- image_prompt는 스톡 영상 대신 AI 이미지를 만들 때 쓴다. image_prompt는 영어로, 세로 9:16 구도, 사람이 찍은 듯한 자연스러운 사진 느낌(handheld, natural light, candid). 화면 안에 글자를 넣지 말 것(no text, no letters, no logo).
 - visual_style은 모든 장면에 공통으로 붙일 영어 스타일 문장 (색감, 조명, 질감) — 장면 간 통일감을 위해.
 - motion은 장면 분위기에 맞게: 긴장/집중 zoom_in, 여운 zoom_out, 시간 흐름 pan_left/pan_right.
 - on_screen_text는 장면의 핵심 키워드 2~12자, 필요 없으면 빈 문자열. 내레이션 자막은 따로 자동 생성되므로 내레이션을 반복하지 않는다.
@@ -101,13 +102,14 @@ export const SCRIPT_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["role", "narration", "on_screen_text", "media_id", "image_prompt", "motion", "est_seconds"],
+        required: ["role", "narration", "on_screen_text", "media_id", "stock_query", "image_prompt", "motion", "est_seconds"],
         properties: {
           role: { type: "string", enum: Object.keys(SCENE_ROLES) },
           narration: { type: "string" },
           on_screen_text: { type: "string" },
           media_id: { type: "string", description: "학생 업로드 미디어 ID (예: m1). 없으면 빈 문자열" },
-          image_prompt: { type: "string", description: "media_id가 비어 있을 때 생성할 이미지 프롬프트 (영어)" },
+          stock_query: { type: "string", description: "스톡 영상 검색어 (영어 2~4단어)" },
+          image_prompt: { type: "string", description: "AI 이미지를 만들 때 쓸 프롬프트 (영어)" },
           motion: { type: "string", enum: ["zoom_in", "zoom_out", "pan_left", "pan_right", "static"] },
           est_seconds: { type: "number" },
         },

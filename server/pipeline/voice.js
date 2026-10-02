@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { getConfig, providerStatus } from "../config.js";
 import { ffmpeg } from "../lib/ffmpeg.js";
+import { fetchWithRetry } from "../lib/http.js";
 
 // 장면별 내레이션 음성(wav, 44.1kHz mono)
 //  - ElevenLabs (ELEVENLABS 키가 있으면 우선)
@@ -60,18 +61,13 @@ const ELEVEN_STYLE = {
   strong: { stability: 0.4, style: 0.45 },
 };
 
-async function elevenFetch(pathname, options = {}) {
-  const res = await fetch(`${ELEVEN_API}${pathname}`, {
-    ...options,
-    headers: { "xi-api-key": getConfig().elevenlabsKey, ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    const err = new Error(`ElevenLabs 오류 (HTTP ${res.status}): ${body.slice(0, 300)}`);
-    err.status = res.status;
-    throw err;
-  }
-  return res;
+// 반 전체가 한 키를 쓰면 동시 요청 한도에 자주 걸려서, 최대 3분까지 기다리며 다시 시도합니다.
+function elevenFetch(pathname, options = {}) {
+  return fetchWithRetry(
+    `${ELEVEN_API}${pathname}`,
+    { ...options, headers: { "xi-api-key": getConfig().elevenlabsKey, ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers } },
+    { label: "ElevenLabs", maxWaitMs: 180_000 },
+  );
 }
 
 /** 공개 목소리 라이브러리에서 한국어 목소리 찾기. 결과가 없으면 조건을 하나씩 풀어서 다시 찾습니다. */
@@ -170,7 +166,7 @@ const OPENAI_VOICE = {
 
 async function ttsOpenAI({ text, voice, voiceTone, outPath }) {
   const config = getConfig();
-  const res = await fetch("https://api.openai.com/v1/audio/speech", {
+  const res = await fetchWithRetry("https://api.openai.com/v1/audio/speech", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.openaiKey}` },
     body: JSON.stringify({
@@ -180,8 +176,7 @@ async function ttsOpenAI({ text, voice, voiceTone, outPath }) {
       instructions: `한국어로 자연스럽게 말하세요. 광고 성우처럼 과장하지 말고, 실제 사람이 진심으로 이야기하듯. 목소리: ${describeVoice(voice)}. 톤: ${voiceTone}`,
       response_format: "wav",
     }),
-  });
-  if (!res.ok) throw new Error(`목소리 생성 실패 (HTTP ${res.status}): ${(await res.text()).slice(0, 300)}`);
+  }, { label: "OpenAI 목소리" });
   const raw = `${outPath}.raw.wav`;
   fs.writeFileSync(raw, Buffer.from(await res.arrayBuffer()));
   await finalize(raw, outPath, voice.speed);

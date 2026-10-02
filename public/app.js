@@ -42,13 +42,14 @@ let providers = {};
 let voiceOptions = { gender: {}, age: {}, style: {} };
 const PROVIDER_LABEL = {
   script: { claude: "대본 Claude", demo: "대본 데모", missing: "대본 키 필요" },
+  stock: { pexels: "스톡 Pexels", pixabay: "스톡 Pixabay", none: "스톡 없음" },
   image: { openai: "이미지 AI", placeholder: "이미지 임시카드" },
   voice: { elevenlabs: "목소리 ElevenLabs", openai: "목소리 OpenAI", silent: "목소리 없음" },
 };
 
 function renderProviders() {
   $("#providers").innerHTML = Object.entries(PROVIDER_LABEL)
-    .map(([k, map]) => `<span class="pill ${["demo", "placeholder", "silent", "missing"].includes(providers[k]) ? "off" : ""}">${map[providers[k]]}</span>`)
+    .map(([k, map]) => `<span class="pill ${["demo", "placeholder", "silent", "missing", "none"].includes(providers[k]) ? "off" : ""}">${map[providers[k]]}</span>`)
     .join("");
 }
 
@@ -72,14 +73,30 @@ async function openSettings() {
   f.elevenlabsModel.innerHTML = Object.entries(s.elevenlabsModels).map(([id, label]) => `<option value="${id}">${label}</option>`).join("");
   f.elevenlabsModel.value = s.elevenlabsModel;
   document.querySelectorAll("[data-saved]").forEach((el) => (el.textContent = s[el.dataset.saved] ? `저장됨 ${s[el.dataset.saved]}` : ""));
+  $("#classNote").classList.toggle("hidden", !s.usingClassSettings);
   if (!settingsDialog.open) settingsDialog.showModal();
 }
 $("#settingsBtn").addEventListener("click", openSettings);
 $("#settingsCancel").addEventListener("click", () => settingsDialog.close());
+$("#importSettings").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    await api("/api/settings/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    await openSettings();
+    refreshStatus();
+    alert("설정을 불러왔어요 ✓");
+  } catch (err) {
+    alert(err instanceof SyntaxError ? "설정 파일 형식이 아니에요" : err.message);
+  }
+});
 $("#settingsForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const f = e.target;
-  const body = { anthropicKey: f.anthropicKey.value, elevenlabsKey: f.elevenlabsKey.value, openaiKey: f.openaiKey.value, elevenlabsModel: f.elevenlabsModel.value };
+  const body = { elevenlabsModel: f.elevenlabsModel.value };
+  for (const name of ["anthropicKey", "elevenlabsKey", "pexelsKey", "pixabayKey", "openaiKey"]) body[name] = f[name].value;
   try {
     await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     settingsDialog.close();
@@ -200,8 +217,19 @@ function renderScript() {
     const el = $("#sceneTpl").content.firstElementChild.cloneNode(true);
     $(".num", el).textContent = i + 1;
     $(".role", el).textContent = ROLE_LABEL[scene.role] || scene.role;
-    const mediaSelect = $('[data-f="media_id"]', el);
-    mediaSelect.innerHTML = `<option value="">AI 이미지 생성</option>` + project.media.map((m) => `<option value="${m.id}">내 ${m.kind === "video" ? "영상" : "사진"} ${m.id}${m.description ? ` · ${m.description.slice(0, 14)}` : ""}</option>`).join("");
+    const source = $(".source", el);
+    source.innerHTML =
+      project.media.map((m) => `<option value="${m.id}">📷 내 ${m.kind === "video" ? "영상" : "사진"} ${m.id}${m.description ? ` · ${m.description.slice(0, 14)}` : ""}</option>`).join("") +
+      `<option value="stock">🎞 무료 스톡 영상${providers.stock === "none" ? " (키 필요)" : ""}</option>` +
+      `<option value="ai">🎨 AI 이미지${providers.image === "placeholder" ? " (키 없음: 색상 카드)" : ""}</option>`;
+    source.value = scene.media_id || scene.visual || "stock";
+    source.addEventListener("change", () => {
+      if (source.value === "stock" || source.value === "ai") {
+        scene.media_id = "";
+        scene.visual = source.value;
+      } else scene.media_id = source.value;
+      updateScene(el, scene);
+    });
     el.querySelectorAll("[data-f]").forEach((input) => {
       input.value = scene[input.dataset.f] ?? "";
       input.addEventListener("input", () => {
@@ -232,7 +260,9 @@ function renderScript() {
 function updateScene(el, scene) {
   $(".secs", el).textContent = `약 ${estimateSeconds(scene).toFixed(1)}초`;
   const media = project.media.find((m) => m.id === scene.media_id);
-  $(".prompt", el).classList.toggle("hidden", Boolean(media));
+  const visual = media ? "media" : scene.visual || "stock";
+  $(".prompt", el).classList.toggle("hidden", visual !== "ai");
+  $(".stock-query", el).classList.toggle("hidden", visual !== "stock");
   let thumb = $(".thumb", el);
   if (media) {
     if (!thumb) {
@@ -409,6 +439,19 @@ function renderResult() {
   $("#resultInfo").textContent = `${out.duration.toFixed(1)}초 · 1080×1920 · 인스타그램 릴스 규격`;
   const s = project.script;
   $("#captionText").value = `${s.caption}\n\n${s.hashtags.map((h) => `#${h.replace(/^#/, "")}`).join(" ")}`;
+  const credits = out.credits || [];
+  $("#creditsBox").classList.toggle("hidden", !credits.length);
+  $("#credits").innerHTML = "";
+  for (const c of credits) {
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.href = c.page;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = `${c.author || "작가 미상"} / ${c.site}`;
+    li.append(`${c.scene}번 장면: `, a);
+    $("#credits").append(li);
+  }
 }
 
 $("#copyBtn").addEventListener("click", async () => {

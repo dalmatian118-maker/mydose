@@ -67,6 +67,7 @@ export function publicView(project) {
       video: url(project.output.video),
       cover: url(project.output.cover),
       duration: project.output.duration,
+      credits: project.output.credits || [],
       scenes: project.output.scenes?.map((s) => ({ image: url(s.image) })),
     },
   };

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { exec } from "node:child_process";
 import express from "express";
 import multer from "multer";
-import { ROOT, DATA_DIR, getConfig, providerStatus, publicSettings, updateSettings } from "./config.js";
+import { ROOT, DATA_DIR, getConfig, providerStatus, publicSettings, updateSettings, exportClassSettings, importSettings } from "./config.js";
 import { checkFfmpeg } from "./lib/ffmpeg.js";
 import { ensureFonts } from "./lib/fonts.js";
 import { createProject, getProject, projectDir, publicView, save } from "./store.js";
@@ -61,6 +61,22 @@ app.get("/api/settings", (_req, res) => res.json(publicSettings()));
 app.put("/api/settings", (req, res) => {
   updateSettings(req.body || {});
   res.json({ settings: publicSettings(), providers: providerStatus() });
+});
+
+// 선생님용: 반 공용 설정 파일 내려받기
+app.get("/api/settings/class-export", (_req, res) => {
+  res.setHeader("Content-Disposition", 'attachment; filename="class-settings.json"');
+  res.json(exportClassSettings());
+});
+
+// 학생용: 받은 설정 파일 불러오기
+app.post("/api/settings/import", (req, res) => {
+  try {
+    const fields = importSettings(req.body || {});
+    res.json({ imported: fields, settings: publicSettings(), providers: providerStatus() });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // ElevenLabs 한국어 목소리 찾기 (성별·연령대)

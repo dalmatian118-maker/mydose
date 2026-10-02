@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { getConfig, VIDEO } from "../config.js";
 import { ffmpeg } from "../lib/ffmpeg.js";
+import { fetchWithRetry } from "../lib/http.js";
 
 // 장면 이미지 생성. OPENAI_API_KEY가 있으면 AI 이미지, 없으면 색 그라데이션 임시 카드.
 
@@ -15,12 +16,11 @@ export function buildImagePrompt(scene, visualStyle) {
 
 async function generateWithOpenAI(prompt, outPath) {
   const config = getConfig();
-  const res = await fetch("https://api.openai.com/v1/images/generations", {
+  const res = await fetchWithRetry("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.openaiKey}` },
     body: JSON.stringify({ model: config.openaiImageModel, prompt, size: "1024x1536", n: 1 }),
-  });
-  if (!res.ok) throw new Error(`이미지 생성 실패 (HTTP ${res.status}): ${(await res.text()).slice(0, 300)}`);
+  }, { label: "OpenAI 이미지" });
   const json = await res.json();
   const b64 = json.data?.[0]?.b64_json;
   if (!b64) throw new Error("이미지 생성 응답에 이미지가 없어요");

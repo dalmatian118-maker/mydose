@@ -6,6 +6,9 @@ const Scene = z.object({
   narration: z.string().trim().min(1, "내레이션이 비어 있는 장면이 있어요"),
   on_screen_text: z.string().default(""),
   media_id: z.string().default(""),
+  // 직접 올린 미디어가 없을 때 화면 채우는 방법: 무료 스톡 영상 또는 AI 이미지
+  visual: z.enum(["stock", "ai"]).default("stock"),
+  stock_query: z.string().max(100).default(""),
   image_prompt: z.string().default(""),
   motion: z.enum(["zoom_in", "zoom_out", "pan_left", "pan_right", "static"]).default("zoom_in"),
   est_seconds: z.number().positive().max(15),
@@ -36,9 +39,8 @@ export function validateScript(raw, mediaIds = []) {
   const script = ScriptSchema.parse(raw);
   for (const scene of script.scenes) {
     if (scene.media_id && !mediaIds.includes(scene.media_id)) scene.media_id = "";
-    if (!scene.media_id && !scene.image_prompt.trim()) {
-      scene.image_prompt = "candid vertical photo related to the brand story, natural light";
-    }
+    if (!scene.image_prompt.trim()) scene.image_prompt = "candid vertical photo related to the brand story, natural light";
+    if (!scene.stock_query.trim()) scene.stock_query = scene.image_prompt.split(/[,.]/)[0].split(" ").slice(0, 4).join(" ");
   }
   return script;
 }
