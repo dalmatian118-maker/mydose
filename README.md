@@ -20,7 +20,7 @@
    CLASS_CODE=test123
    ANTHROPIC_API_KEY=sk-ant-...
    ELEVENLABS_API_KEY=sk_...
-   PEXELS_API_KEY=...
+   PIXABAY_API_KEY=...
    ```
    테스트가 끝나면 `.env` 파일을 지워야 일반 모드로 돌아와요.
 
@@ -39,8 +39,7 @@
    | `CLASS_CODE` | 학생에게 알려줄 수업 코드 (예: `reels2026`) |
    | `ANTHROPIC_API_KEY` | Claude 키 (필수) |
    | `ELEVENLABS_API_KEY` | ElevenLabs 키 |
-   | `PEXELS_API_KEY` | Pexels 키 |
-   | `PIXABAY_API_KEY` | Pixabay 키 (선택) |
+   | `PIXABAY_API_KEY` | Pixabay 키 (무료 스톡 영상) |
 
 5. 위쪽 상태가 **Building → Running**이 될 때까지 3~5분 기다려요.
 6. 학생용 링크는 **`https://<내아이디>-<Space이름>.hf.space`** 예요. 예: `https://teacher-brand-reels.hf.space`
@@ -67,8 +66,7 @@
 |---|---|---|---|
 | [Anthropic Console](https://console.anthropic.com) | 대본 (필수) | 크레딧 $5~15 | 크레딧 충전, **Limits에서 월 사용 한도 설정** |
 | [ElevenLabs](https://elevenlabs.io) | 목소리 | Starter 1달 $5 (수업 후 해지) | API Keys에서 키 발급 |
-| [Pexels](https://www.pexels.com/api/) | 무료 스톡 영상·사진 | **무료** | 가입 후 API 키 발급 |
-| [Pixabay](https://pixabay.com/api/docs/) | 무료 스톡 (예비) | **무료** | 가입 후 API 키 발급 (선택) |
+| [Pixabay](https://pixabay.com/api/docs/) | 무료 스톡 영상·사진 | **무료** | 가입 후 API 문서 페이지에서 키 확인 |
 | OpenAI | AI 이미지 | 쓰지 않아도 됨 | — |
 
 1. 내 컴퓨터에서 프로그램을 실행하고 **⚙️ 설정**에 키를 넣어 저장해요.
@@ -80,7 +78,7 @@
 수업 팁
 - **사전 과제**: "내 브랜드와 관련된 사진·짧은 영상 3~5개 찍어오기". 직접 찍은 화면이 진정성 있어 보이고, 스톡 검색 횟수도 줄어요.
 - **동시 접속**: 같은 키를 반 전체가 동시에 쓰면 요청 한도에 걸릴 수 있어요. 프로그램이 알아서 기다렸다가 다시 시도하지만, 조별로 1~2분씩 시차를 두면 더 빨라요.
-  - Pexels는 기본 한도가 **시간당 200회**예요. 30명 × 6장면이면 빠듯하니 [Pexels에 한도 상향을 요청](https://help.pexels.com/hc/en-us/articles/900005852323)하거나(무료), Pixabay 키도 같이 넣어두세요. 한도에 걸리면 Pixabay → AI 이미지 → 색상 카드 순서로 자동으로 대체돼요.
+  - Pixabay는 **1분에 100회**까지 요청할 수 있어서 30명이 동시에 써도 대부분 괜찮아요. 한도에 걸리면 AI 이미지 → 색상 카드 순서로 자동으로 대체돼요.
   - ElevenLabs Starter는 동시 요청 수가 작아서 목소리 단계가 조금 느려질 수 있어요. 대기했다가 자동으로 다시 시도해요.
 
 ## 학생용 실행 방법 (각자 컴퓨터에 설치하는 경우)
@@ -102,11 +100,11 @@
 |---|---|---|
 | 대본 | Claude | 필수 (또는 데모 모드) |
 | 목소리 | **ElevenLabs** (우선) → OpenAI TTS | 무음 + 자막 |
-| 화면 | 내 사진·영상 → **무료 스톡 영상(Pexels/Pixabay)** → AI 이미지(OpenAI) | 색상 그라데이션 카드 |
+| 화면 | 내 사진·영상 → **무료 스톡 영상(Pixabay, 기존 Pexels 키도 지원)** → AI 이미지(OpenAI) | 색상 그라데이션 카드 |
 | 영상 | ffmpeg 켄 번즈 효과 (확대·축소·이동) | 항상 동작 |
 | 자막 | ffmpeg + libass | 항상 동작 |
 
-학생이 직접 올린 사진·영상을 가장 먼저 써요. Claude가 사진을 직접 보고 어울리는 장면에 배치해요. 나머지 장면은 Claude가 만든 검색어로 **무료 스톡 영상**(없으면 사진)을 찾아 채워요. 장면마다 대본 화면에서 "화면 소스"와 검색어를 바꿀 수 있어요. 사용한 스톡 영상의 출처는 완성 화면에 표시돼요.
+학생이 직접 올린 사진·영상을 가장 먼저 써요. Claude가 사진을 직접 보고 어울리는 장면에 배치해요. 나머지 장면은 Claude가 만든 검색어로 **무료 스톡 영상**(Pixabay, 없으면 사진)을 찾아 채워요. 장면마다 대본 화면에서 "화면 소스"와 검색어를 바꿀 수 있어요. 사용한 스톡 영상의 출처는 완성 화면에 표시돼요.
 
 ## 목소리 (ElevenLabs 연결)
 
@@ -149,7 +147,7 @@ server/
   pipeline/
     playbook.js         ★ 후킹·바이럴·진정성 지침 + 대본 JSON 스키마
     script.js           Claude로 대본 생성
-    stock.js            무료 스톡 영상·사진 (Pexels / Pixabay)
+    stock.js            무료 스톡 영상·사진 (Pixabay / Pexels)
     images.js           장면 이미지 (OpenAI / 임시 카드)
     voice.js            목소리 (ElevenLabs / OpenAI TTS / 무음), 성별·연령대·말투·속도
     timing.js           장면 길이 계산, 30초 맞추기

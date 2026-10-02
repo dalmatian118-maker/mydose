@@ -5,6 +5,7 @@ import { fetchWithRetry } from "../lib/http.js";
 // 무료 스톡 영상·사진 (Pexels 우선, Pixabay 대체)
 // 직접 찍은 사진이 없는 장면을 실제 촬영 영상으로 채웁니다. AI 영상 생성 비용 없이 움직이는 화면을 만들 수 있어요.
 
+const PIXABAY_API = process.env.PIXABAY_BASE_URL || "https://pixabay.com";
 const hasHangul = (s) => /[가-힣]/.test(s);
 const MAX_DOWNLOAD_HEIGHT = 2000; // 4K 원본은 너무 커서 1080p급 파일을 고릅니다
 // 시간당 요청 한도에 걸리면 기다리지 않고 바로 다음 방법으로 넘어갑니다
@@ -51,7 +52,7 @@ async function searchPixabay(query, kind) {
   const params = { key: getConfig().pixabayKey, q: query.slice(0, 100), per_page: "8", safesearch: "true" };
   if (hasHangul(query)) params.lang = "ko";
   if (kind === "video") {
-    const res = await fetchWithRetry(`https://pixabay.com/api/videos/?${new URLSearchParams(params)}`, {}, { label: "Pixabay", ...RETRY });
+    const res = await fetchWithRetry(`${PIXABAY_API}/api/videos/?${new URLSearchParams(params)}`, {}, { label: "Pixabay", ...RETRY });
     const json = await res.json();
     return (json.hits || [])
       .map((h) => {
@@ -62,7 +63,7 @@ async function searchPixabay(query, kind) {
   }
   params.orientation = "vertical";
   params.image_type = "photo";
-  const res = await fetchWithRetry(`https://pixabay.com/api/?${new URLSearchParams(params)}`, {}, { label: "Pixabay", ...RETRY });
+  const res = await fetchWithRetry(`${PIXABAY_API}/api/?${new URLSearchParams(params)}`, {}, { label: "Pixabay", ...RETRY });
   const json = await res.json();
   return (json.hits || []).map((h) => ({
     kind: "image",
