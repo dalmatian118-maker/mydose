@@ -12,6 +12,18 @@
 학생은 **링크를 열고 수업 코드만 입력**하면 돼요. 설치도, API 키 입력도 필요 없어요. 키는 서버에만 있어서 학생에게 보이지 않아요.
 서버는 [Hugging Face Spaces](https://huggingface.co/spaces)의 무료 CPU(2코어)를 써요.
 
+### 서버에 올리기 전에 내 컴퓨터에서 테스트하기
+1. **키 없이 화면 흐름 보기**: `demo-windows.bat` 또는 `demo-mac.command`를 더블클릭해요.
+2. **실제 키로 결과물 확인**: `start-windows.bat` 또는 `start-mac.command`를 실행하고 ⚙️ 설정에 키를 넣어요. 서버에서 만들어지는 영상과 똑같아요.
+3. **수업 서버 화면(수업 코드 입력)까지 똑같이 보기** (선택): 프로그램 폴더에 `.env` 파일을 만들어 아래처럼 쓰고 `start-*` 파일로 실행해요. 이 모드에서는 ⚙️ 설정 버튼이 사라지고, 키는 `.env`에서만 읽어요.
+   ```
+   CLASS_CODE=test123
+   ANTHROPIC_API_KEY=sk-ant-...
+   ELEVENLABS_API_KEY=sk_...
+   PEXELS_API_KEY=...
+   ```
+   테스트가 끝나면 `.env` 파일을 지워야 일반 모드로 돌아와요.
+
 ### 서버 만들기 (선생님, 약 10분)
 1. [huggingface.co](https://huggingface.co)에 가입해요.
 2. [새 Space 만들기](https://huggingface.co/new-space)를 열어요.
@@ -84,7 +96,7 @@
 
 - API 키는 각자 컴퓨터의 `data/settings.json`에만 저장되고, 프로그램은 그 컴퓨터에서만 열려요(127.0.0.1). 같은 와이파이를 쓰는 다른 사람은 접속할 수 없어요.
 - 만든 영상은 `data/projects/` 폴더에 남아요.
-- **API 키 없이 체험**하려면 터미널에서 `DEMO_MODE=1 npm start`로 실행해요. 예시 대본, 색상 카드 이미지, 무음 + 자막으로 만들어져요.
+- **API 키 없이 체험**하려면 `demo-windows.bat`(Mac은 `demo-mac.command`)을 더블클릭해요. 예시 대본, 색상 카드 이미지, 무음 + 자막으로 만들어져요.
 
 | 단계 | 사용하는 것 | 키가 없으면 |
 |---|---|---|
@@ -150,6 +162,8 @@ Dockerfile              수업 서버용 (Docker 호스팅)
 deploy/huggingface/     Hugging Face Spaces 용 Dockerfile + README
 start-windows.bat       Windows 더블클릭 실행
 start-mac.command       Mac 더블클릭 실행
+demo-windows.bat        Windows 키 없이 체험
+demo-mac.command        Mac 키 없이 체험
 test/                   단위 테스트 (npm test)
 ```
 
