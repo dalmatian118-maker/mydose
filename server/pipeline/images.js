@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { config, VIDEO } from "../config.js";
+import { getConfig, VIDEO } from "../config.js";
 import { ffmpeg } from "../lib/ffmpeg.js";
 
 // 장면 이미지 생성. OPENAI_API_KEY가 있으면 AI 이미지, 없으면 색 그라데이션 임시 카드.
@@ -14,6 +14,7 @@ export function buildImagePrompt(scene, visualStyle) {
 }
 
 async function generateWithOpenAI(prompt, outPath) {
+  const config = getConfig();
   const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.openaiKey}` },
@@ -50,7 +51,7 @@ async function makePlaceholder(index, outPath) {
 
 /** 장면 하나의 정지 이미지를 준비합니다. 반환: 이미지 경로 */
 export async function prepareSceneImage({ scene, index, visualStyle, outPath }) {
-  if (config.openaiKey) {
+  if (getConfig().openaiKey) {
     await generateWithOpenAI(buildImagePrompt(scene, visualStyle), outPath);
   } else {
     await makePlaceholder(index, outPath);

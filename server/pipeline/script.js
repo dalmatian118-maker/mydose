@@ -1,13 +1,18 @@
 import fs from "node:fs";
 import Anthropic from "@anthropic-ai/sdk";
-import { config } from "../config.js";
+import { getConfig } from "../config.js";
 import { SYSTEM_PROMPT, SCRIPT_JSON_SCHEMA } from "./playbook.js";
 import { validateScript } from "./schema.js";
 import { DEMO_SCRIPT } from "./demo-script.js";
 
 let client;
-function getClient() {
-  client ??= new Anthropic();
+let clientKey;
+function getClient(apiKey) {
+  // 설정 화면에서 키를 바꾸면 새 클라이언트를 만듭니다.
+  if (!client || clientKey !== apiKey) {
+    client = new Anthropic({ apiKey });
+    clientKey = apiKey;
+  }
   return client;
 }
 
@@ -17,7 +22,9 @@ function getClient() {
  * @param {Array} media   [{ id, kind: "image"|"video", description, previewPath }]
  */
 export async function generateScript(brief, media) {
+  const config = getConfig();
   if (config.demoMode) return validateScript(structuredClone(DEMO_SCRIPT), media.map((m) => m.id));
+  if (!config.anthropicKey) throw new Error("Claude API 키가 없어요. 오른쪽 위 ⚙️ 설정에서 입력해주세요.");
 
   const content = [];
   // 학생이 올린 사진/영상(대표 프레임)을 Claude가 직접 보고 장면에 배치하도록 함께 보냅니다.
@@ -46,7 +53,7 @@ export async function generateScript(brief, media) {
     ].join("\n"),
   });
 
-  const stream = getClient().beta.messages.stream({
+  const stream = getClient(config.anthropicKey).beta.messages.stream({
     model: config.claudeModel,
     max_tokens: 16000,
     system: SYSTEM_PROMPT,

@@ -1,14 +1,17 @@
 import path from "node:path";
 import fs from "node:fs";
+import { exec } from "node:child_process";
 import express from "express";
 import multer from "multer";
-import { ROOT, DATA_DIR, config, providerStatus } from "./config.js";
+import { ROOT, DATA_DIR, getConfig, providerStatus, publicSettings, updateSettings } from "./config.js";
+import { checkFfmpeg } from "./lib/ffmpeg.js";
 import { ensureFonts } from "./lib/fonts.js";
 import { createProject, getProject, projectDir, publicView, save } from "./store.js";
 import { makePreview, mediaKind } from "./pipeline/media.js";
 import { generateScript } from "./pipeline/script.js";
 import { validateScript } from "./pipeline/schema.js";
 import { renderProject } from "./pipeline/render.js";
+import { VOICE_OPTIONS, normalizeVoice, prepareSceneVoice, searchElevenLabsVoices, resolveElevenLabsVoice } from "./pipeline/voice.js";
 
 const MAX_MEDIA = 8;
 
@@ -47,8 +50,24 @@ async function runScript(project) {
   save(project);
 }
 
-app.get("/api/status", (_req, res) => {
-  res.json({ providers: providerStatus(), model: config.claudeModel });
+const ffmpegCheck = checkFfmpeg();
+
+app.get("/api/status", async (_req, res) => {
+  res.json({ providers: providerStatus(), model: getConfig().claudeModel, ffmpeg: await ffmpegCheck, voiceOptions: VOICE_OPTIONS });
+});
+
+// API 키 설정 (이 컴퓨터에만 저장, 화면에는 끝 4자리만)
+app.get("/api/settings", (_req, res) => res.json(publicSettings()));
+app.put("/api/settings", (req, res) => {
+  updateSettings(req.body || {});
+  res.json({ settings: publicSettings(), providers: providerStatus() });
+});
+
+// ElevenLabs 한국어 목소리 찾기 (성별·연령대)
+app.get("/api/voices/elevenlabs", async (req, res) => {
+  if (providerStatus().voice !== "elevenlabs") return res.status(400).json({ error: "ElevenLabs API 키를 먼저 설정해주세요" });
+  const { gender, age } = normalizeVoice(req.query);
+  res.json(await searchElevenLabsVoices({ gender, age }));
 });
 
 // 1단계: 브랜드 스토리 + 미디어 업로드 → 대본 생성 시작
@@ -67,6 +86,9 @@ app.post(
       return res.status(400).json({ error: "브랜드 스토리를 30자 이상 써주세요" });
     }
     project.brief = { brandName: brandName.trim(), story: story.trim(), audience: audience.trim(), tone: tone.trim() };
+    try {
+      project.voice = normalizeVoice(JSON.parse(req.body.voice || "{}"));
+    } catch {}
 
     let descriptions = [];
     try {
@@ -117,6 +139,31 @@ app.put("/api/projects/:id/script", loadProject, (req, res) => {
   res.json(publicView(project));
 });
 
+// 목소리 선택 저장
+app.put("/api/projects/:id/voice", loadProject, (req, res) => {
+  const project = req.project;
+  if (project.stage === "rendering") return res.status(409).json({ error: "작업 중에는 바꿀 수 없어요" });
+  project.voice = normalizeVoice(req.body);
+  save(project);
+  res.json(publicView(project));
+});
+
+// 목소리 미리 듣기: 대본 앞부분을 실제 목소리로 읽어봅니다
+app.post("/api/projects/:id/voice/preview", loadProject, async (req, res) => {
+  const project = req.project;
+  if (providerStatus().voice === "silent") return res.status(400).json({ error: "목소리 API 키(ElevenLabs 또는 OpenAI)를 먼저 설정해주세요" });
+  let voice = normalizeVoice(req.body);
+  if (providerStatus().voice === "elevenlabs") voice = await resolveElevenLabsVoice(voice);
+  const text = project.script?.scenes.slice(0, 2).map((s) => s.narration).join(" ") || "안녕하세요. 제 브랜드 이야기를 들려드릴게요.";
+  if (project.voicePreview) fs.rmSync(project.voicePreview, { force: true });
+  const outPath = path.join(projectDir(project.id), `voice_preview_${Date.now()}.wav`);
+  await prepareSceneVoice({ text, voice, voiceTone: project.script?.voice_tone || "", outPath });
+  project.voice = voice;
+  project.voicePreview = outPath;
+  save(project);
+  res.json(publicView(project));
+});
+
 // 3단계: 영상 만들기
 app.post("/api/projects/:id/render", loadProject, (req, res) => {
   const project = req.project;
@@ -139,8 +186,18 @@ app.use((err, _req, res, _next) => {
 });
 
 await ensureFonts();
-app.listen(config.port, () => {
+const { port, host } = getConfig();
+// 기본은 127.0.0.1: 이 컴퓨터에서만 접속 가능 (같은 와이파이의 다른 사람이 API 키를 쓰지 못하게)
+app.listen(port, host, () => {
+  const url = `http://localhost:${port}`;
   const p = providerStatus();
-  console.log(`\n🎬 브랜드 릴스 스튜디오: http://localhost:${config.port}`);
-  console.log(`   대본: ${p.script === "demo" ? "데모 대본" : config.claudeModel} | 이미지: ${p.image} | 목소리: ${p.voice} | 영상: ${p.video}\n`);
+  console.log(`\n🎬 브랜드 릴스 스튜디오: ${url}`);
+  console.log(`   대본: ${p.script} | 이미지: ${p.image} | 목소리: ${p.voice} | 영상: ${p.video}`);
+  console.log("   끝내려면 이 창을 닫거나 Ctrl+C 를 누르세요.\n");
+  if (process.env.OPEN_BROWSER === "1") openBrowser(url);
 });
+
+function openBrowser(url) {
+  const cmd = process.platform === "win32" ? `start "" "${url}"` : process.platform === "darwin" ? `open "${url}"` : `xdg-open "${url}"`;
+  exec(cmd, () => {});
+}

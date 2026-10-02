@@ -55,3 +55,13 @@ test("ASS 자막에 후킹·타이틀·내레이션이 모두 들어간다", () 
   assert.match(ass, /,Title,,/);
   assert.match(ass, /,Caption,,0,0,0,,첫 비누는 전부 버렸어요/);
 });
+
+import { normalizeVoice, describeVoice } from "../server/pipeline/voice.js";
+
+test("목소리 설정은 잘못된 값을 기본값으로 고치고 속도를 0.8~1.2로 제한한다", () => {
+  const v = normalizeVoice({ gender: "robot", age: "old", style: "calm", speed: 3 });
+  assert.equal(v.gender, "female");
+  assert.equal(v.age, "old");
+  assert.equal(v.speed, 1.2);
+  assert.equal(describeVoice(v), "50대 이상 여성, 차분하게");
+});

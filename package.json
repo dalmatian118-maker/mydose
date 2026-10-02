@@ -11,7 +11,7 @@
     "test": "node --test"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.12"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.131.0",

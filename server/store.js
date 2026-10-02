@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { DATA_DIR } from "./config.js";
+import { DEFAULT_VOICE } from "./pipeline/voice.js";
 
 // 프로젝트 = 학생 한 명의 릴스 작업 1건. data/projects/<id>/project.json 에 저장됩니다.
 const cache = new Map();
@@ -19,6 +20,7 @@ export function createProject(brief) {
     brief,
     media: [],
     bgm: null,
+    voice: { ...DEFAULT_VOICE },
     script: null,
     stage: "new", // new → scripting → script_ready → rendering → done | error
     steps: [],
@@ -54,6 +56,8 @@ export function publicView(project) {
     brief: project.brief,
     media: project.media.map((m) => ({ id: m.id, kind: m.kind, description: m.description, preview: url(m.previewPath) })),
     hasBgm: Boolean(project.bgm),
+    voice: { ...DEFAULT_VOICE, ...project.voice },
+    voicePreview: project.voicePreview ? url(project.voicePreview) : null,
     script: project.script,
     stage: project.stage,
     steps: project.steps,

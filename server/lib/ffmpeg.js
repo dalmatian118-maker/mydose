@@ -41,3 +41,19 @@ export async function probeDuration(file) {
 export function filterPath(p) {
   return p.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
 }
+
+/** 자막(libass)·움직임(zoompan) 필터가 있는 ffmpeg인지 확인 */
+export async function checkFfmpeg() {
+  try {
+    const { stdout } = await run(FFMPEG, ["-hide_banner", "-filters"]);
+    const missing = ["ass", "zoompan"].filter((f) => !new RegExp(`\\s${f}\\s`).test(stdout));
+    if (missing.length) {
+      console.warn(`⚠️  ffmpeg에 필요한 기능이 없어요: ${missing.join(", ")}`);
+      return { ok: false, missing };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.warn(`⚠️  ffmpeg를 실행할 수 없어요: ${err.message}`);
+    return { ok: false, error: err.message };
+  }
+}

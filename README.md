@@ -7,27 +7,47 @@
 스토리 입력 → ① 대본(Claude) → [학생이 확인·수정] → ② 이미지 → ③ 목소리 → ④ 장면 영상 → ⑤ 자막 → ⑥ 합성 → 릴스 + 게시글 문구
 ```
 
-## 실행 방법
+## 학생용 실행 방법 (각자 컴퓨터)
 
-```bash
-npm install
-cp .env.example .env      # API 키 입력
-npm start                 # http://localhost:3000
-```
+1. **Node.js 설치**: [nodejs.org](https://nodejs.org/ko/download)에서 **LTS** 버전을 받아 설치해요. 한 번만 하면 돼요.
+2. **프로그램 받기**: GitHub에서 `Code → Download ZIP`으로 받은 뒤 압축을 풀어요.
+3. **실행**
+   - Windows: `start-windows.bat` 더블클릭
+   - Mac: `start-mac.command` 더블클릭. 처음 한 번은 "확인되지 않은 개발자" 경고가 나올 수 있어요. 그럴 땐 **마우스 오른쪽 클릭 → 열기**로 실행해요.
+   - 처음 실행할 때는 필요한 프로그램(ffmpeg, 한글 폰트 포함)을 자동으로 설치해요. 1~3분 정도 걸려요.
+4. 브라우저가 자동으로 열려요 (`http://localhost:3000`). 오른쪽 위 **⚙️ 설정**에 API 키를 넣어요.
+5. 다 쓰면 검은 실행 창을 닫으면 끝나요.
 
-- Node.js 22 이상이 필요해요. ffmpeg는 npm 패키지에 포함되어 있어서 따로 설치하지 않아도 돼요.
-- 처음 실행할 때 자막용 한글 폰트(Noto Sans KR, Black Han Sans, OFL 라이선스)를 `assets/fonts/`에 자동으로 내려받아요.
-- **API 키 없이 화면만 체험하기**: `DEMO_MODE=1 npm start` (예시 대본, 색상 카드 이미지, 무음 + 자막)
+- API 키는 각자 컴퓨터의 `data/settings.json`에만 저장되고, 프로그램은 그 컴퓨터에서만 열려요(127.0.0.1). 같은 와이파이를 쓰는 다른 사람은 접속할 수 없어요.
+- 만든 영상은 `data/projects/` 폴더에 남아요.
+- **API 키 없이 체험**하려면 터미널에서 `DEMO_MODE=1 npm start`로 실행해요. 예시 대본, 색상 카드 이미지, 무음 + 자막으로 만들어져요.
 
 | 단계 | 사용하는 것 | 키가 없으면 |
 |---|---|---|
-| 대본 | Claude (`ANTHROPIC_API_KEY`) | 필수 (또는 `DEMO_MODE=1`) |
-| 이미지 | OpenAI 이미지 생성 (`OPENAI_API_KEY`) | 색상 그라데이션 카드 |
-| 목소리 | OpenAI TTS (`OPENAI_API_KEY`) | 무음 + 자막 |
+| 대본 | Claude | 필수 (또는 데모 모드) |
+| 목소리 | **ElevenLabs** (우선) → OpenAI TTS | 무음 + 자막 |
+| 이미지 | OpenAI 이미지 생성 | 색상 그라데이션 카드 |
 | 영상 | ffmpeg 켄 번즈 효과 (확대·축소·이동) | 항상 동작 |
-| 자막 | ffmpeg + libass (ASS 자막) | 항상 동작 |
+| 자막 | ffmpeg + libass | 항상 동작 |
 
 학생이 직접 올린 사진·영상은 AI 이미지보다 우선해서 쓰여요. Claude가 사진을 직접 보고 어울리는 장면에 배치해요.
+
+## 목소리 (ElevenLabs 연결)
+
+1. [elevenlabs.io](https://elevenlabs.io) 가입 → 프로필 메뉴의 **API Keys**에서 키를 만들어요. 권한은 Text to Speech와 Voices(읽기·쓰기)만 켜도 돼요.
+2. 프로그램의 **⚙️ 설정 → ElevenLabs**에 키를 붙여넣어요. 이후로는 OpenAI보다 ElevenLabs를 먼저 사용해요.
+3. 대본 화면의 **🎙 목소리**에서 고르면 돼요.
+   - **성별 / 연령대(10~20대, 30~40대, 50대 이상) / 말투 / 말 속도**를 정해요.
+   - **"이 조건으로 한국어 목소리 찾기"**를 누르면 ElevenLabs 공개 목소리 라이브러리에서 조건에 맞는 한국어 목소리를 인기순으로 보여줘요.
+   - **"내 대본으로 미리 듣기"**로 실제 대본 첫 두 장면을 들어볼 수 있어요.
+   - 목소리를 고르지 않으면 조건에 맞는 인기 목소리를 자동으로 골라요.
+4. 모델은 설정에서 고를 수 있어요. 기본은 `eleven_multilingual_v2`(안정적인 한국어)이고, `eleven_flash_v2_5`(저렴), `eleven_v3`(감정 표현)도 있어요.
+
+참고
+- 장면마다 따로 목소리를 만들지만, 앞뒤 문장(`previous_text`/`next_text`)을 함께 보내서 억양이 자연스럽게 이어지게 했어요.
+- 라이브러리 목소리를 처음 쓸 때 계정의 "My Voices"에 자동으로 추가될 수 있어요. 요금제마다 목소리 슬롯 수가 정해져 있으니, 가득 차면 ElevenLabs 웹에서 안 쓰는 목소리를 지워주세요.
+- 무료 요금제는 API로 라이브러리 목소리를 쓰는 데 제한이 있을 수 있어요. 수업용으로는 가장 저렴한 유료 요금제(Starter)를 권장해요.
+- 릴스 1편(내레이션 약 180자)은 대략 180 크레딧(flash 모델은 그 절반)을 써요. 미리 듣기도 크레딧을 써요.
 
 ## 대본 작성 원칙 (`server/pipeline/playbook.js`)
 
@@ -52,19 +72,20 @@ server/
     playbook.js         ★ 후킹·바이럴·진정성 지침 + 대본 JSON 스키마
     script.js           Claude로 대본 생성
     images.js           장면 이미지 (OpenAI / 임시 카드)
-    voice.js            목소리 (OpenAI TTS / 무음)
+    voice.js            목소리 (ElevenLabs / OpenAI TTS / 무음), 성별·연령대·말투·속도
     timing.js           장면 길이 계산, 30초 맞추기
     video.js            장면 클립 (켄 번즈 / 업로드 영상 자르기)
     subtitles.js        자막(ASS) 생성
     compose.js          최종 합성
     render.js           전체 순서 실행
 public/                 학생용 웹 화면
+start-windows.bat       Windows 더블클릭 실행
+start-mac.command       Mac 더블클릭 실행
 test/                   단위 테스트 (npm test)
 ```
 
 ## 다음에 해볼 것
 
-- AI 영상 생성(Runway, Kling, Veo 등) 연결: `server/pipeline/video.js`에 provider 추가
-- 더 자연스러운 한국어 목소리(ElevenLabs, 네이버 클로바 등) 선택
+- AI 영상 생성(Kling, Hailuo, Veo 등) 연결: `server/pipeline/video.js`에 provider 추가
 - 자막 단어별 강조(카라오케 효과), 장면 전환 효과
 - 무료 배경음악 라이브러리, 여러 학생 동시 사용을 위한 작업 대기열

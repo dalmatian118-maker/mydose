@@ -4,7 +4,7 @@ import { providerStatus } from "../config.js";
 import { probeDuration } from "../lib/ffmpeg.js";
 import { projectDir, save } from "../store.js";
 import { prepareSceneImage } from "./images.js";
-import { prepareSceneVoice } from "./voice.js";
+import { prepareSceneVoice, normalizeVoice, resolveElevenLabsVoice, describeVoice } from "./voice.js";
 import { planTiming } from "./timing.js";
 import { clipFromImage, clipFromVideo } from "./video.js";
 import { buildAss } from "./subtitles.js";
@@ -44,7 +44,7 @@ export async function renderProject(project) {
   project.warnings = [];
   project.steps = STEPS.map(([key, label]) => ({ key, label, status: "pending", detail: "" }));
   if (providers.image === "placeholder") project.warnings.push("이미지 생성 API 키가 없어 AI 이미지 대신 색상 카드로 만들어요. (업로드한 사진은 그대로 사용)");
-  if (providers.voice === "silent") project.warnings.push("목소리 생성 API 키가 없어 무음 + 자막 버전으로 만들어요.");
+  if (providers.voice === "silent") project.warnings.push("목소리 생성 API 키(ElevenLabs 또는 OpenAI)가 없어 무음 + 자막 버전으로 만들어요.");
   save(project);
 
   const step = (key, status, detail = "") => {
@@ -74,9 +74,21 @@ export async function renderProject(project) {
 
   // 2) 목소리
   step("voice", "running");
+  let voice = normalizeVoice(project.voice);
+  if (providers.voice === "elevenlabs") {
+    voice = await resolveElevenLabsVoice(voice);
+    project.voice = voice;
+  }
   done = 0;
   const voices = await mapLimit(scenes, 3, async (scene, i) => {
-    const out = await prepareSceneVoice({ text: scene.narration, voiceTone: script.voice_tone, outPath: path.join(dir, `voice${i + 1}.wav`) });
+    const out = await prepareSceneVoice({
+      text: scene.narration,
+      prevText: scenes[i - 1]?.narration,
+      nextText: scenes[i + 1]?.narration,
+      voice,
+      voiceTone: script.voice_tone,
+      outPath: path.join(dir, `voice${i + 1}.wav`),
+    });
     step("voice", "running", `${++done}/${scenes.length}`);
     return out;
   });
@@ -84,7 +96,8 @@ export async function renderProject(project) {
   const timing = planTiming(voiceSeconds, scenes.map((s) => s.role));
   if (timing.tempo > 1) project.warnings.push(`30초에 맞추려고 말 속도를 ${Math.round((timing.tempo - 1) * 100)}% 빠르게 했어요.`);
   if (timing.overLimit) project.warnings.push(`대본이 길어서 ${timing.total.toFixed(1)}초가 됐어요. 내레이션을 줄이면 30초 안에 들어와요.`);
-  step("voice", "done", providers.voice === "silent" ? "무음" : `${timing.voice.reduce((a, b) => a + b, 0).toFixed(1)}초`);
+  const voiceLabel = voice.voiceName || describeVoice(voice);
+  step("voice", "done", providers.voice === "silent" ? "무음" : `${voiceLabel} · ${timing.voice.reduce((a, b) => a + b, 0).toFixed(1)}초`);
 
   // 3) 장면 영상 클립 (인코딩은 CPU를 많이 써서 2개씩)
   step("video", "running");

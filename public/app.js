@@ -38,15 +38,56 @@ function estimateSeconds(scene) {
 }
 
 // ---------- 상태 표시 ----------
-api("/api/status").then(({ providers }) => {
-  const label = {
-    script: { claude: "대본 Claude", demo: "대본 데모" },
-    image: { openai: "이미지 AI", placeholder: "이미지 임시카드" },
-    voice: { openai: "목소리 AI", silent: "목소리 없음" },
-  };
-  $("#providers").innerHTML = Object.entries(label)
-    .map(([k, map]) => `<span class="pill ${["demo", "placeholder", "silent"].includes(providers[k]) ? "off" : ""}">${map[providers[k]]}</span>`)
+let providers = {};
+let voiceOptions = { gender: {}, age: {}, style: {} };
+const PROVIDER_LABEL = {
+  script: { claude: "대본 Claude", demo: "대본 데모", missing: "대본 키 필요" },
+  image: { openai: "이미지 AI", placeholder: "이미지 임시카드" },
+  voice: { elevenlabs: "목소리 ElevenLabs", openai: "목소리 OpenAI", silent: "목소리 없음" },
+};
+
+function renderProviders() {
+  $("#providers").innerHTML = Object.entries(PROVIDER_LABEL)
+    .map(([k, map]) => `<span class="pill ${["demo", "placeholder", "silent", "missing"].includes(providers[k]) ? "off" : ""}">${map[providers[k]]}</span>`)
     .join("");
+}
+
+async function refreshStatus() {
+  const status = await api("/api/status");
+  providers = status.providers;
+  voiceOptions = status.voiceOptions;
+  renderProviders();
+  if (!status.ffmpeg.ok) showError("영상 도구(ffmpeg)에 문제가 있어요. 프로그램 창의 안내를 확인해주세요.");
+  if (providers.script === "missing") openSettings();
+  if (script) renderVoice();
+}
+refreshStatus();
+
+// ---------- API 키 설정 ----------
+const settingsDialog = $("#settings");
+async function openSettings() {
+  const s = await api("/api/settings");
+  const f = $("#settingsForm");
+  f.reset();
+  f.elevenlabsModel.innerHTML = Object.entries(s.elevenlabsModels).map(([id, label]) => `<option value="${id}">${label}</option>`).join("");
+  f.elevenlabsModel.value = s.elevenlabsModel;
+  document.querySelectorAll("[data-saved]").forEach((el) => (el.textContent = s[el.dataset.saved] ? `저장됨 ${s[el.dataset.saved]}` : ""));
+  if (!settingsDialog.open) settingsDialog.showModal();
+}
+$("#settingsBtn").addEventListener("click", openSettings);
+$("#settingsCancel").addEventListener("click", () => settingsDialog.close());
+$("#settingsForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  const body = { anthropicKey: f.anthropicKey.value, elevenlabsKey: f.elevenlabsKey.value, openaiKey: f.openaiKey.value, elevenlabsModel: f.elevenlabsModel.value };
+  try {
+    await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    settingsDialog.close();
+    showError("");
+    refreshStatus();
+  } catch (err) {
+    showError(err.message);
+  }
 });
 
 // ---------- 1단계: 스토리 ----------
@@ -185,6 +226,7 @@ function renderScript() {
     $("#authCheck").append(li);
   });
   updateDuration();
+  renderVoice();
 }
 
 function updateScene(el, scene) {
@@ -226,6 +268,7 @@ $("#regenBtn").addEventListener("click", async () => {
 $("#renderBtn").addEventListener("click", async () => {
   showError("");
   try {
+    await saveVoice();
     await api(`/api/projects/${project.id}/script`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -236,6 +279,114 @@ $("#renderBtn").addEventListener("click", async () => {
     poll();
   } catch (err) {
     showError(err.message);
+  }
+});
+
+// ---------- 목소리 ----------
+let voiceSaveTimer = null;
+
+function renderVoice() {
+  const voice = project.voice;
+  document.querySelectorAll("[data-voice]").forEach((wrap) => {
+    const key = wrap.dataset.voice;
+    wrap.innerHTML = Object.entries(voiceOptions[key] || {})
+      .map(([value, label]) => `<button type="button" class="chip ${voice[key] === value ? "active" : ""}" data-value="${value}">${label}</button>`)
+      .join("");
+  });
+  $("#voiceSpeed").value = voice.speed;
+  $("#speedLabel").textContent = `${voice.speed.toFixed(2)}배`;
+
+  const label = { elevenlabs: "ElevenLabs", openai: "OpenAI", silent: "API 키가 없어 무음 + 자막으로 만들어요" };
+  $("#voiceProvider").textContent = label[providers.voice] || "";
+  $("#elevenPanel").classList.toggle("hidden", providers.voice !== "elevenlabs");
+  $("#previewVoice").classList.toggle("hidden", providers.voice === "silent");
+  $("#chosenVoice").textContent =
+    providers.voice === "elevenlabs"
+      ? voice.voiceId
+        ? `선택한 목소리: ${voice.voiceName || voice.voiceId}`
+        : "목소리를 고르지 않으면 조건에 맞는 인기 한국어 목소리가 자동으로 정해져요."
+      : "";
+}
+
+function changeVoice(patch) {
+  const v = project.voice;
+  // 성별·연령대를 바꾸면 이전에 고른 ElevenLabs 목소리는 해제
+  if ((patch.gender && patch.gender !== v.gender) || (patch.age && patch.age !== v.age)) Object.assign(patch, { voiceId: "", voiceName: "", ownerId: "" });
+  Object.assign(v, patch);
+  renderVoice();
+  clearTimeout(voiceSaveTimer);
+  voiceSaveTimer = setTimeout(saveVoice, 400);
+}
+
+async function saveVoice() {
+  clearTimeout(voiceSaveTimer);
+  const updated = await api(`/api/projects/${project.id}/voice`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(project.voice),
+  });
+  project.voice = updated.voice;
+}
+
+document.querySelectorAll("[data-voice]").forEach((wrap) =>
+  wrap.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (chip) changeVoice({ [wrap.dataset.voice]: chip.dataset.value });
+  }),
+);
+$("#voiceSpeed").addEventListener("input", (e) => changeVoice({ speed: Number(e.target.value) }));
+
+$("#findVoices").addEventListener("click", async () => {
+  const btn = $("#findVoices");
+  btn.disabled = true;
+  $("#voiceHint").textContent = "찾는 중…";
+  try {
+    const { gender, age } = project.voice;
+    const { voices, relaxed } = await api(`/api/voices/elevenlabs?gender=${gender}&age=${age}`);
+    $("#voiceHint").textContent = voices.length
+      ? `${voices.length}개를 찾았어요. 샘플은 다른 언어일 수 있으니 '내 대본으로 미리 듣기'로 확인해보세요.${relaxed ? " (조건에 딱 맞는 목소리가 적어서 범위를 넓혔어요)" : ""}`
+      : "목소리를 찾지 못했어요. 조건을 바꿔보세요.";
+    const list = $("#voiceList");
+    list.innerHTML = "";
+    for (const v of voices) {
+      const item = document.createElement("div");
+      item.className = `voice-item ${v.voiceId === project.voice.voiceId ? "selected" : ""}`;
+      item.innerHTML = `<strong></strong><button type="button" class="ghost small">선택</button><small></small>${v.previewUrl ? `<audio controls preload="none" src="${v.previewUrl}"></audio>` : ""}`;
+      $("strong", item).textContent = v.name;
+      $("small", item).textContent = [v.language && v.language.toUpperCase(), v.description].filter(Boolean).join(" · ").slice(0, 120);
+      $("button", item).addEventListener("click", () => {
+        changeVoice({ voiceId: v.voiceId, voiceName: v.name, ownerId: v.ownerId });
+        list.querySelectorAll(".voice-item").forEach((el) => el.classList.toggle("selected", el === item));
+      });
+      list.append(item);
+    }
+  } catch (err) {
+    $("#voiceHint").textContent = err.message;
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+$("#previewVoice").addEventListener("click", async () => {
+  const btn = $("#previewVoice");
+  btn.disabled = true;
+  btn.textContent = "만드는 중…";
+  try {
+    project = await api(`/api/projects/${project.id}/voice/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(project.voice),
+    });
+    renderVoice();
+    const audio = $("#voiceAudio");
+    audio.src = project.voicePreview;
+    audio.classList.remove("hidden");
+    audio.play().catch(() => {});
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "▶ 내 대본으로 미리 듣기";
   }
 });
 
