@@ -62,12 +62,29 @@ const ELEVEN_STYLE = {
 };
 
 // 반 전체가 한 키를 쓰면 동시 요청 한도에 자주 걸려서, 최대 3분까지 기다리며 다시 시도합니다.
-function elevenFetch(pathname, options = {}) {
-  return fetchWithRetry(
-    `${ELEVEN_API}${pathname}`,
-    { ...options, headers: { "xi-api-key": getConfig().elevenlabsKey, ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers } },
-    { label: "ElevenLabs", maxWaitMs: 180_000 },
-  );
+// ElevenLabs 키 권한 이름 → 화면에서 보이는 이름
+const ELEVEN_PERMISSION = { voices_read: "Voices(목소리) 읽기", voices_write: "Voices(목소리) 쓰기", text_to_speech: "Text to Speech" };
+
+async function elevenFetch(pathname, options = {}) {
+  try {
+    return await fetchWithRetry(
+      `${ELEVEN_API}${pathname}`,
+      { ...options, headers: { "xi-api-key": getConfig().elevenlabsKey, ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers } },
+      { label: "ElevenLabs", maxWaitMs: 180_000 },
+    );
+  } catch (err) {
+    // 권한이 빠진 키: 무엇을 켜야 하는지 알려줍니다
+    const missing = err.message.match(/missing the permission (\w+)/)?.[1];
+    if (missing) {
+      const friendly = new Error(
+        `ElevenLabs 키에 '${ELEVEN_PERMISSION[missing] || missing}' 권한이 없어요. elevenlabs.io → API Keys에서 키 권한을 수정해주세요 (Text to Speech: 허용, Voices: 읽기+쓰기).`,
+      );
+      friendly.status = err.status;
+      throw friendly;
+    }
+    if (err.status === 401) throw Object.assign(new Error("ElevenLabs 키가 올바르지 않아요. 설정에 넣은 키를 다시 확인해주세요."), { status: 401 });
+    throw err;
+  }
 }
 
 /** 공개 목소리 라이브러리에서 한국어 목소리 찾기. 결과가 없으면 조건을 하나씩 풀어서 다시 찾습니다. */
