@@ -173,7 +173,10 @@ code { background: var(--bg); padding: 0 4px; border-radius: 4px; }
 .queue { background: var(--accent-soft); border-radius: 10px; padding: 12px 14px; font-weight: 700; color: var(--accent); }
 
 .teacher-bar { background: #1d1b19; color: #fff; padding: 12px 20px; font-weight: 700; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
-.teacher-bar #studentUrls { font-size: 22px; color: #ffd700; letter-spacing: 0.5px; }
+.teacher-bar #studentUrls { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.teacher-bar .url-item { display: flex; flex-direction: column; }
+.teacher-bar .url-item small { font-weight: 400; opacity: 0.75; font-size: 12px; }
+.teacher-bar .url-item b { font-size: 22px; color: #ffd700; letter-spacing: 0.5px; }
 .teacher-bar small { font-weight: 400; opacity: 0.7; }
 
 .brand-color { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }

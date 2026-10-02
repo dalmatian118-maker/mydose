@@ -103,7 +103,15 @@ async function refreshStatus() {
   renderProviders();
   const urls = status.studentUrls || [];
   $("#teacherBar").classList.toggle("hidden", !urls.length);
-  $("#studentUrls").textContent = urls.join("  /  ");
+  $("#studentUrls").innerHTML = "";
+  for (const u of urls) {
+    const item = document.createElement("span");
+    item.className = "url-item";
+    item.innerHTML = `<small></small><b></b>`;
+    item.querySelector("small").textContent = u.includes("trycloudflare.com") ? "🌐 어디서나 (랜선·와이파이·휴대폰)" : "📶 같은 와이파이에서만";
+    item.querySelector("b").textContent = u;
+    $("#studentUrls").append(item);
+  }
   // 수업 서버에서는 키를 서버에서 관리하므로 설정 버튼을 숨깁니다
   $("#settingsBtn").classList.toggle("hidden", hosted);
   if (!status.authed) return showCodeGate();

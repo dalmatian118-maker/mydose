@@ -16,4 +16,5 @@ echo ※ 방화벽 창이 안 뜨거나 허용 버튼이 막혀 있으면 학생
 echo ※ 수업 중에는 PC가 절전 모드에 들어가지 않도록 전원 설정을 확인해주세요.
 echo.
 set HOST=0.0.0.0
+set TUNNEL=1
 call "%~dp0start-windows.bat"

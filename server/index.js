@@ -7,6 +7,7 @@ import express from "express";
 import multer from "multer";
 import { ROOT, DATA_DIR, getConfig, providerStatus, publicSettings, updateSettings, exportClassSettings, importSettings } from "./config.js";
 import { checkFfmpeg } from "./lib/ffmpeg.js";
+import { startTunnel, stopTunnel } from "./lib/tunnel.js";
 import { ensureFonts } from "./lib/fonts.js";
 import { createProject, getProject, projectDir, publicView, save, cleanupOld, setQueuePositionProvider } from "./store.js";
 import { makePreview, mediaKind } from "./pipeline/media.js";
@@ -92,9 +93,11 @@ async function runScript(project) {
 
 const ffmpegCheck = checkFfmpeg();
 
-/** 같은 와이파이의 학생들이 접속할 주소 (예: http://192.168.0.12:3000) */
+let publicUrl = null; // 인터넷 임시 주소 (TUNNEL=1 일 때)
+
+/** 학생들이 접속할 주소: 인터넷 주소(있으면) + 같은 와이파이 주소 (예: http://192.168.0.12:3000) */
 function studentUrls() {
-  const urls = [];
+  const urls = publicUrl ? [publicUrl] : [];
   for (const list of Object.values(os.networkInterfaces())) {
     for (const a of list || []) {
       if (a.family === "IPv4" && !a.internal && !a.address.startsWith("169.254.")) urls.push(`http://${a.address}:${config.port}`);
@@ -102,12 +105,16 @@ function studentUrls() {
   }
   return urls;
 }
-const isLocalRequest = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
+// 인터넷 주소(터널)로 들어온 요청도 이 컴퓨터에서 온 것처럼 보이므로, 프록시 헤더가 없을 때만 '선생님 화면'으로 봅니다.
+const isLocalRequest = (req) =>
+  ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress) &&
+  !req.headers["cf-connecting-ip"] &&
+  !req.headers["x-forwarded-for"];
 
 app.get("/api/status", async (req, res) => {
   res.json({
     // 선생님 컴퓨터를 수업 서버로 쓸 때, 선생님 화면에만 학생 접속 주소를 보여줍니다
-    studentUrls: config.hosted && isLocalRequest(req) && config.host !== "127.0.0.1" ? studentUrls() : [],
+    studentUrls: config.hosted && isLocalRequest(req) && (config.host !== "127.0.0.1" || publicUrl) ? studentUrls() : [],
     providers: providerStatus(),
     model: config.claudeModel,
     ffmpeg: await ffmpegCheck,
@@ -273,7 +280,7 @@ if (config.hosted) {
 }
 const { port, host } = config;
 // 기본은 127.0.0.1: 이 컴퓨터에서만 접속 가능 (같은 와이파이의 다른 사람이 API 키를 쓰지 못하게)
-app.listen(port, host, () => {
+app.listen(port, host, async () => {
   const url = `http://localhost:${port}`;
   const p = providerStatus();
   console.log(`\n🎬 브랜드 릴스 스튜디오: ${url}`);
@@ -289,7 +296,23 @@ app.listen(port, host, () => {
   }
   console.log("   끝내려면 이 창을 닫거나 Ctrl+C 를 누르세요.\n");
   if (process.env.OPEN_BROWSER === "1") openBrowser(url);
+  if (process.env.TUNNEL === "1") {
+    console.log("   🌐 인터넷 주소를 만드는 중이에요 (최대 40초)...");
+    publicUrl = await startTunnel(port);
+    if (publicUrl) {
+      console.log(`\n   🌐 인터넷 주소 (랜선·와이파이·휴대폰 어디서나): ${publicUrl}\n`);
+    } else {
+      console.log("   ⚠️  인터넷 주소를 만들지 못했어요. 같은 와이파이 주소로만 접속할 수 있어요.\n");
+    }
+  }
 });
+
+for (const sig of ["SIGINT", "SIGTERM", "SIGHUP"]) {
+  process.on(sig, () => {
+    stopTunnel();
+    process.exit(0);
+  });
+}
 
 function openBrowser(url) {
   const cmd = process.platform === "win32" ? `start "" "${url}"` : process.platform === "darwin" ? `open "${url}"` : `xdg-open "${url}"`;

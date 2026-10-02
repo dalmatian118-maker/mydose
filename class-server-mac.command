@@ -17,7 +17,8 @@ echo ""
 echo "수업 코드: $CLASS_CODE"
 echo "※ Mac이 잠자기에 들어가지 않도록 이 창이 열려 있는 동안 잠자기를 막아요."
 echo "※ '들어오는 네트워크 연결을 허용할까요?' 창이 뜨면 [허용]을 눌러주세요."
+echo "※ 인터넷 주소(https://...trycloudflare.com)가 만들어지면 랜선 PC·와이파이·휴대폰 어디서나 접속돼요."
 echo ""
 
 # caffeinate: 서버가 켜져 있는 동안 Mac 잠자기 방지
-CLASS_CODE="$CLASS_CODE" HOST=0.0.0.0 caffeinate -i bash ./start-mac.command
+CLASS_CODE="$CLASS_CODE" HOST=0.0.0.0 TUNNEL=1 caffeinate -i bash ./start-mac.command

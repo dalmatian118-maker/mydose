@@ -20,5 +20,8 @@
     "ffprobe-static": "^3.1.0",
     "multer": "^2.4.0",
     "zod": "^4.6.5"
+  },
+  "optionalDependencies": {
+    "cloudflared": "^0.7.3"
   }
 }
