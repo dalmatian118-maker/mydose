@@ -30,10 +30,12 @@ function zoompanExpr(motion, frames) {
 export async function clipFromImage({ image, seconds, motion, outPath }) {
   const frames = Math.max(1, Math.round(seconds * FPS));
   const { z, x, y } = zoompanExpr(motion, frames);
-  // 2배로 키운 뒤 zoompan 하면 움직임이 덜 떨립니다.
+  // 1.5배로 키운 뒤 zoompan 하면 움직임이 덜 떨립니다.
+  const sw = W * 1.5;
+  const sh = H * 1.5;
   const vf = [
-    `scale=${W * 2}:${H * 2}:force_original_aspect_ratio=increase`,
-    `crop=${W * 2}:${H * 2}`,
+    `scale=${sw}:${sh}:force_original_aspect_ratio=increase`,
+    `crop=${sw}:${sh}`,
     `zoompan=z='${z}':x='${x}':y='${y}':d=${frames}:s=${W}x${H}:fps=${FPS}`,
   ].join(",");
   await ffmpeg(["-i", image, "-vf", vf, "-frames:v", String(frames), ...ENCODE, outPath]);

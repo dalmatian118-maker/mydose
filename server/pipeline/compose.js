@@ -41,7 +41,8 @@ export async function compose({ dir, clips, voices, timing, assPath, bgm, outPat
     ...inputs,
     "-filter_complex", filters.join(";"),
     "-map", "[v]", "-map", audioOut,
-    "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-pix_fmt", "yuv420p",
+    // veryfast: medium 대비 2배 이상 빠르고 화질·용량 차이는 거의 없음 (반 전체가 서버 한 대를 나눠 쓸 때 중요)
+    "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p",
     "-c:a", "aac", "-b:a", "160k", "-ar", "44100",
     "-t", String(timing.total),
     "-movflags", "+faststart",

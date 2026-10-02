@@ -7,6 +7,27 @@ import { DEFAULT_VOICE } from "./pipeline/voice.js";
 // 프로젝트 = 학생 한 명의 릴스 작업 1건. data/projects/<id>/project.json 에 저장됩니다.
 const cache = new Map();
 
+// render.js 와 순환 import를 피하려고 대기 순번 함수는 나중에 등록합니다.
+let queuePositionOf = () => 0;
+export function setQueuePositionProvider(fn) {
+  queuePositionOf = fn;
+}
+
+/** 오래된 프로젝트(학생 사진·영상 포함) 정리 */
+export function cleanupOld(hours) {
+  const cutoff = Date.now() - hours * 3600_000;
+  for (const id of fs.existsSync(DATA_DIR) ? fs.readdirSync(DATA_DIR) : []) {
+    const file = path.join(DATA_DIR, id, "project.json");
+    try {
+      const { createdAt, stage } = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (new Date(createdAt).getTime() < cutoff && !["queued", "rendering", "scripting"].includes(stage)) {
+        fs.rmSync(path.join(DATA_DIR, id), { recursive: true, force: true });
+        cache.delete(id);
+      }
+    } catch {}
+  }
+}
+
 export function projectDir(id) {
   return path.join(DATA_DIR, id);
 }
@@ -60,6 +81,7 @@ export function publicView(project) {
     voicePreview: project.voicePreview ? url(project.voicePreview) : null,
     script: project.script,
     stage: project.stage,
+    queuePosition: project.stage === "queued" ? queuePositionOf(project.id) : 0,
     steps: project.steps,
     warnings: [...(project.uploadWarnings || []), ...project.warnings],
     error: project.error,

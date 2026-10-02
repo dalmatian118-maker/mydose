@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -48,12 +49,22 @@ export function pickSettings(obj = {}) {
   return out;
 }
 
+// 수업 서버 모드: 한 서버(예: Hugging Face Spaces)에 반 전체가 링크로 접속.
+// API 키는 서버 환경변수(Secrets)에만 두고, 학생은 수업 코드만 입력합니다.
+export const HOSTED = process.env.HOSTED === "1" || Boolean(process.env.CLASS_CODE);
+
 export function getConfig() {
-  const classSettings = pickSettings(readJson(CLASS_SETTINGS_FILE));
-  const get = (field, env) => saved[field] || classSettings[field] || process.env[env] || "";
+  const classSettings = HOSTED ? {} : pickSettings(readJson(CLASS_SETTINGS_FILE));
+  const get = (field, env) => (HOSTED ? process.env[env] || "" : saved[field] || classSettings[field] || process.env[env] || "");
   return {
     port: Number(process.env.PORT || 3000),
-    host: process.env.HOST || "127.0.0.1",
+    host: process.env.HOST || (HOSTED ? "0.0.0.0" : "127.0.0.1"),
+    hosted: HOSTED,
+    classCode: process.env.CLASS_CODE || "",
+    // 동시에 만드는 릴스 수 (나머지는 대기열). 기본: CPU 2개당 1편
+    renderConcurrency: Number(process.env.RENDER_CONCURRENCY) || Math.max(1, Math.floor(os.availableParallelism() / 2)),
+    uploadLimitMB: Number(process.env.UPLOAD_LIMIT_MB) || (HOSTED ? 50 : 200),
+    keepHours: Number(process.env.KEEP_HOURS) || 24,
     demoMode: process.env.DEMO_MODE === "1",
     claudeModel: process.env.CLAUDE_MODEL || "claude-opus-5-5",
     anthropicKey: get("anthropicKey", "ANTHROPIC_API_KEY"),

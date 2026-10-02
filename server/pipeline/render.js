@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { providerStatus } from "../config.js";
+import { getConfig, providerStatus } from "../config.js";
 import { probeDuration } from "../lib/ffmpeg.js";
 import { projectDir, save } from "../store.js";
 import { prepareSceneImage } from "./images.js";
@@ -31,6 +31,39 @@ async function mapLimit(items, n, fn) {
   });
   await Promise.all(workers);
   return results;
+}
+
+// ---------- 대기열: 서버 한 대를 반 전체가 쓸 때 동시에 몇 편만 만들고 나머지는 순서대로 ----------
+const waiting = [];
+let running = 0;
+
+export function queuePosition(id) {
+  return waiting.findIndex((w) => w.project.id === id) + 1; // 0 = 대기 중 아님
+}
+
+function pump() {
+  while (running < getConfig().renderConcurrency && waiting.length) {
+    const { project, resolve, reject } = waiting.shift();
+    running++;
+    renderProject(project)
+      .then(resolve, reject)
+      .finally(() => {
+        running--;
+        pump();
+      });
+  }
+}
+
+/** 렌더링을 대기열에 넣습니다. 끝나면 resolve */
+export function enqueueRender(project) {
+  project.stage = "queued";
+  project.error = null;
+  project.steps = [];
+  save(project);
+  return new Promise((resolve, reject) => {
+    waiting.push({ project, resolve, reject });
+    pump();
+  });
 }
 
 export async function renderProject(project) {

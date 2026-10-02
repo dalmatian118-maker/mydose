@@ -12,9 +12,28 @@ let mediaFiles = []; // { file, description }
 async function api(url, options = {}) {
   const res = await fetch(url, options);
   const data = await res.json().catch(() => ({}));
+  if (data.needCode) showCodeGate();
   if (!res.ok) throw new Error(data.error || `요청 실패 (${res.status})`);
   return data;
 }
+
+// ---------- 수업 코드 (수업 서버 모드) ----------
+function showCodeGate() {
+  const gate = $("#codeGate");
+  if (!gate.open) gate.showModal();
+  gate.querySelector("input").focus();
+}
+$("#codeGate").addEventListener("cancel", (e) => e.preventDefault()); // ESC로 닫지 못하게
+$("#codeForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  try {
+    await api("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: e.target.code.value }) });
+    location.reload();
+  } catch (err) {
+    $("#codeError").textContent = err.message;
+    $("#codeError").classList.remove("hidden");
+  }
+});
 
 function showError(msg) {
   const el = $("#error");
@@ -39,6 +58,8 @@ function estimateSeconds(scene) {
 
 // ---------- 상태 표시 ----------
 let providers = {};
+let hosted = false;
+let uploadLimitMB = 200;
 let voiceOptions = { gender: {}, age: {}, style: {} };
 const PROVIDER_LABEL = {
   script: { claude: "대본 Claude", demo: "대본 데모", missing: "대본 키 필요" },
@@ -57,9 +78,17 @@ async function refreshStatus() {
   const status = await api("/api/status");
   providers = status.providers;
   voiceOptions = status.voiceOptions;
+  hosted = status.hosted;
+  uploadLimitMB = status.uploadLimitMB;
   renderProviders();
+  // 수업 서버에서는 키를 서버에서 관리하므로 설정 버튼을 숨깁니다
+  $("#settingsBtn").classList.toggle("hidden", hosted);
+  if (!status.authed) return showCodeGate();
   if (!status.ffmpeg.ok) showError("영상 도구(ffmpeg)에 문제가 있어요. 프로그램 창의 안내를 확인해주세요.");
-  if (providers.script === "missing") openSettings();
+  if (providers.script === "missing") {
+    if (hosted) showError("서버에 Claude API 키가 설정되지 않았어요. 선생님께 알려주세요.");
+    else openSettings();
+  }
   if (script) renderVoice();
 }
 refreshStatus();
@@ -122,6 +151,10 @@ function addFiles(list) {
   for (const file of list) {
     if (mediaFiles.length >= 8) break;
     if (!/^(image|video)\//.test(file.type)) continue;
+    if (file.size > uploadLimitMB * 1024 * 1024) {
+      alert(`'${file.name}' 파일이 너무 커요 (${uploadLimitMB}MB 이하). 영상은 짧게 잘라서 올려주세요.`);
+      continue;
+    }
     mediaFiles.push({ file, description: "" });
   }
   renderMediaList();
@@ -493,8 +526,10 @@ async function poll() {
       renderScript();
     }
     return;
-  } else if (stage === "rendering") {
+  } else if (stage === "queued" || stage === "rendering") {
     showStep(3);
+    $("#queueInfo").classList.toggle("hidden", stage !== "queued");
+    $("#queueInfo").textContent = project.queuePosition > 1 ? `⏳ 차례를 기다리는 중이에요 · 앞에 ${project.queuePosition - 1}명` : "⏳ 곧 시작해요";
     renderProgress();
   } else if (stage === "done") {
     showStep(4);

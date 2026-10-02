@@ -17,6 +17,16 @@
     </div>
   </header>
 
+  <dialog id="codeGate">
+    <form id="codeForm">
+      <h2>🎬 수업 코드 입력</h2>
+      <p class="hint">선생님이 알려준 수업 코드를 입력하세요.</p>
+      <input name="code" autocomplete="off" required placeholder="예: reels2026" />
+      <p class="error hidden" id="codeError"></p>
+      <button type="submit" class="primary">시작하기</button>
+    </form>
+  </dialog>
+
   <dialog id="settings">
     <form method="dialog" id="settingsForm">
       <h2>API 키 설정</h2>
@@ -166,6 +176,7 @@
     <!-- 3. 제작 진행 -->
     <section id="step3" class="panel hidden">
       <h1>릴스 만드는 중</h1>
+      <p class="queue hidden" id="queueInfo"></p>
       <ul id="progress" class="progress"></ul>
       <ul id="warnings" class="warnings"></ul>
     </section>

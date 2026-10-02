@@ -7,7 +7,47 @@
 스토리 입력 → ① 대본(Claude) → [학생이 확인·수정] → ② 화면(내 사진·스톡 영상) → ③ 목소리 → ④ 장면 영상 → ⑤ 자막 → ⑥ 합성 → 릴스 + 게시글 문구
 ```
 
-## 👩‍🏫 선생님: 수업 준비 (한 번만)
+## 🔗 링크 하나로 수업하기 (추천 · 무료)
+
+학생은 **링크를 열고 수업 코드만 입력**하면 돼요. 설치도, API 키 입력도 필요 없어요. 키는 서버에만 있어서 학생에게 보이지 않아요.
+서버는 [Hugging Face Spaces](https://huggingface.co/spaces)의 무료 CPU(2코어)를 써요.
+
+### 서버 만들기 (선생님, 약 10분)
+1. [huggingface.co](https://huggingface.co)에 가입해요.
+2. [새 Space 만들기](https://huggingface.co/new-space)를 열어요.
+   - **Space name**: 예) `brand-reels`
+   - **SDK**: **Docker** → **Blank**
+   - **Hardware**: **CPU basic (Free)**
+   - **Public** → **Create Space**
+3. 만든 Space의 **Files** 탭 → **+ Add file → Upload files**에서, 이 저장소의 [`deploy/huggingface/`](deploy/huggingface) 폴더에 있는 **`Dockerfile`과 `README.md` 두 파일**을 올리고 **Commit**해요. 기존 README.md는 덮어써요.
+4. **Settings → Variables and secrets → New secret**에 아래 항목을 추가해요.
+
+   | Name | 값 |
+   |---|---|
+   | `CLASS_CODE` | 학생에게 알려줄 수업 코드 (예: `reels2026`) |
+   | `ANTHROPIC_API_KEY` | Claude 키 (필수) |
+   | `ELEVENLABS_API_KEY` | ElevenLabs 키 |
+   | `PEXELS_API_KEY` | Pexels 키 |
+   | `PIXABAY_API_KEY` | Pixabay 키 (선택) |
+
+5. 위쪽 상태가 **Building → Running**이 될 때까지 3~5분 기다려요.
+6. 학생용 링크는 **`https://<내아이디>-<Space이름>.hf.space`** 예요. 예: `https://teacher-brand-reels.hf.space`
+   - Space 화면 오른쪽 위 **⋮ → Embed this Space**에서도 확인할 수 있어요.
+   - huggingface.co 페이지 주소보다 이 주소가 화면이 넓고 안정적이에요.
+
+### 수업 당일
+- 무료 Space는 48시간 동안 아무도 쓰지 않으면 잠들어요. **수업 5분 전에 링크를 한 번 열어** 깨워두세요.
+- 릴스 1편 만드는 데 약 30초가 걸리고, 여러 명이 동시에 누르면 **순서대로 대기**해요. 화면에 "앞에 N명"이 보여요. 학생들이 대본을 다듬는 시간이 서로 달라서 보통은 몰리지 않아요.
+- 더 빠르게 하고 싶으면 **Settings → Space hardware**에서 수업 시간에만 더 큰 CPU(유료, 시간 단위 과금)로 올리고, 끝나면 다시 Free로 돌려요.
+- 학생이 올린 사진·영상은 **24시간 뒤 자동 삭제**돼요. 수업 코드가 없으면 아무도 볼 수 없어요.
+- 코드를 고친 뒤 Space에 반영하려면 **Settings → Factory rebuild**를 눌러요.
+
+### 수업이 끝나면
+**Settings → Pause Space**(또는 Delete)를 누르고, 각 서비스에서 API 키를 삭제해요.
+
+> 다른 Docker 호스팅(Railway, Render, Fly.io 등)에서도 저장소 루트의 `Dockerfile`로 똑같이 실행돼요. 환경변수는 위 표와 같아요.
+
+## 👩‍🏫 선생님: 각자 컴퓨터에서 쓰는 경우의 준비
 
 수업에서 한 사람이 한 편씩 만드는 기준이에요. 선생님 키 하나로 반 전체를 운영하는 방식이 가장 효율적이에요. 30명 기준 약 1~3만 원이 들어요.
 
@@ -31,7 +71,7 @@
   - Pexels는 기본 한도가 **시간당 200회**예요. 30명 × 6장면이면 빠듯하니 [Pexels에 한도 상향을 요청](https://help.pexels.com/hc/en-us/articles/900005852323)하거나(무료), Pixabay 키도 같이 넣어두세요. 한도에 걸리면 Pixabay → AI 이미지 → 색상 카드 순서로 자동으로 대체돼요.
   - ElevenLabs Starter는 동시 요청 수가 작아서 목소리 단계가 조금 느려질 수 있어요. 대기했다가 자동으로 다시 시도해요.
 
-## 학생용 실행 방법 (각자 컴퓨터)
+## 학생용 실행 방법 (각자 컴퓨터에 설치하는 경우)
 
 1. **Node.js 설치**: [nodejs.org](https://nodejs.org/ko/download)에서 **LTS** 버전을 받아 설치해요. 한 번만 하면 돼요.
 2. **프로그램 받기**: GitHub에서 `Code → Download ZIP`으로 받은 뒤 압축을 풀어요.
@@ -92,7 +132,7 @@
 ```
 server/
   index.js              API 서버 (Express)
-  config.js             설정 (내 설정 > class-settings.json > .env)
+  config.js             설정 (내 설정 > class-settings.json > .env / 수업 서버는 환경변수만)
   lib/http.js           요청 한도(429) 자동 재시도
   pipeline/
     playbook.js         ★ 후킹·바이럴·진정성 지침 + 대본 JSON 스키마
@@ -106,6 +146,8 @@ server/
     compose.js          최종 합성
     render.js           전체 순서 실행
 public/                 학생용 웹 화면
+Dockerfile              수업 서버용 (Docker 호스팅)
+deploy/huggingface/     Hugging Face Spaces 용 Dockerfile + README
 start-windows.bat       Windows 더블클릭 실행
 start-mac.command       Mac 더블클릭 실행
 test/                   단위 테스트 (npm test)

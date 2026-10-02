@@ -1,23 +1,62 @@
 import path from "node:path";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { exec } from "node:child_process";
 import express from "express";
 import multer from "multer";
 import { ROOT, DATA_DIR, getConfig, providerStatus, publicSettings, updateSettings, exportClassSettings, importSettings } from "./config.js";
 import { checkFfmpeg } from "./lib/ffmpeg.js";
 import { ensureFonts } from "./lib/fonts.js";
-import { createProject, getProject, projectDir, publicView, save } from "./store.js";
+import { createProject, getProject, projectDir, publicView, save, cleanupOld, setQueuePositionProvider } from "./store.js";
 import { makePreview, mediaKind } from "./pipeline/media.js";
 import { generateScript } from "./pipeline/script.js";
 import { validateScript } from "./pipeline/schema.js";
-import { renderProject } from "./pipeline/render.js";
+import { enqueueRender, queuePosition } from "./pipeline/render.js";
 import { VOICE_OPTIONS, normalizeVoice, prepareSceneVoice, searchElevenLabsVoices, resolveElevenLabsVoice } from "./pipeline/voice.js";
 
 const MAX_MEDIA = 8;
+const BUSY = ["queued", "scripting", "rendering"];
+const config = getConfig();
+setQueuePositionProvider(queuePosition);
 
 const app = express();
+app.set("trust proxy", true);
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(path.join(ROOT, "public")));
+
+// ---------- 수업 서버 모드: 수업 코드를 아는 사람만 사용 ----------
+const CODE_COOKIE = "reels_class";
+const codeToken = (code) => crypto.createHash("sha256").update(`reels:${code.trim().toLowerCase()}`).digest("hex");
+
+function isAuthed(req) {
+  if (!config.hosted || !config.classCode) return true;
+  const cookie = (req.headers.cookie || "").split(";").map((c) => c.trim().split("=")).find(([k]) => k === CODE_COOKIE);
+  return cookie?.[1] === codeToken(config.classCode);
+}
+
+app.post("/api/login", async (req, res) => {
+  const code = String(req.body?.code || "");
+  if (!config.classCode || codeToken(code) !== codeToken(config.classCode)) {
+    await new Promise((r) => setTimeout(r, 800)); // 무작위 대입 늦추기
+    return res.status(401).json({ error: "수업 코드가 맞지 않아요" });
+  }
+  // Hugging Face 페이지 안(iframe)에서도 동작하도록 SameSite=None; Secure
+  const secure = req.secure ? "; SameSite=None; Secure" : "; SameSite=Lax";
+  res.setHeader("Set-Cookie", `${CODE_COOKIE}=${codeToken(config.classCode)}; Path=/; HttpOnly; Max-Age=${60 * 60 * 24 * 7}${secure}`);
+  res.json({ ok: true });
+});
+
+app.use(["/api", "/files"], (req, res, next) => {
+  if (req.path === "/status" || isAuthed(req)) return next();
+  res.status(401).json({ error: "수업 코드를 먼저 입력해주세요", needCode: true });
+});
+
+// 수업 서버에서는 API 키를 화면에서 바꿀 수 없음 (서버 Secrets로만 관리)
+app.use("/api/settings", (_req, res, next) => {
+  if (config.hosted) return res.status(403).json({ error: "수업 서버에서는 선생님만 서버 설정에서 키를 바꿀 수 있어요" });
+  next();
+});
+
 app.use("/files", express.static(DATA_DIR));
 
 const upload = multer({
@@ -25,7 +64,7 @@ const upload = multer({
     destination: (req, _file, cb) => cb(null, path.join(projectDir(req.project.id), "uploads")),
     filename: (_req, file, cb) => cb(null, `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${path.extname(file.originalname).toLowerCase()}`),
   }),
-  limits: { fileSize: 200 * 1024 * 1024, files: MAX_MEDIA + 1 },
+  limits: { fileSize: config.uploadLimitMB * 1024 * 1024, files: MAX_MEDIA + 1 },
 });
 
 function loadProject(req, res, next) {
@@ -52,8 +91,16 @@ async function runScript(project) {
 
 const ffmpegCheck = checkFfmpeg();
 
-app.get("/api/status", async (_req, res) => {
-  res.json({ providers: providerStatus(), model: getConfig().claudeModel, ffmpeg: await ffmpegCheck, voiceOptions: VOICE_OPTIONS });
+app.get("/api/status", async (req, res) => {
+  res.json({
+    providers: providerStatus(),
+    model: config.claudeModel,
+    ffmpeg: await ffmpegCheck,
+    voiceOptions: VOICE_OPTIONS,
+    hosted: config.hosted,
+    authed: isAuthed(req),
+    uploadLimitMB: config.uploadLimitMB,
+  });
 });
 
 // API 키 설정 (이 컴퓨터에만 저장, 화면에는 끝 4자리만)
@@ -135,7 +182,7 @@ app.post(
 app.get("/api/projects/:id", loadProject, (req, res) => res.json(publicView(req.project)));
 
 app.post("/api/projects/:id/script/regenerate", loadProject, (req, res) => {
-  if (["scripting", "rendering"].includes(req.project.stage)) return res.status(409).json({ error: "작업 중이에요. 잠시 후 다시 시도해주세요" });
+  if (BUSY.includes(req.project.stage)) return res.status(409).json({ error: "작업 중이에요. 잠시 후 다시 시도해주세요" });
   runScript(req.project);
   res.json(publicView(req.project));
 });
@@ -143,7 +190,7 @@ app.post("/api/projects/:id/script/regenerate", loadProject, (req, res) => {
 // 2단계: 학생이 고친 대본 저장
 app.put("/api/projects/:id/script", loadProject, (req, res) => {
   const project = req.project;
-  if (["scripting", "rendering"].includes(project.stage)) return res.status(409).json({ error: "작업 중에는 대본을 바꿀 수 없어요" });
+  if (BUSY.includes(project.stage)) return res.status(409).json({ error: "작업 중에는 대본을 바꿀 수 없어요" });
   try {
     project.script = validateScript(req.body, project.media.map((m) => m.id));
   } catch (err) {
@@ -158,7 +205,7 @@ app.put("/api/projects/:id/script", loadProject, (req, res) => {
 // 목소리 선택 저장
 app.put("/api/projects/:id/voice", loadProject, (req, res) => {
   const project = req.project;
-  if (project.stage === "rendering") return res.status(409).json({ error: "작업 중에는 바꿀 수 없어요" });
+  if (BUSY.includes(project.stage)) return res.status(409).json({ error: "작업 중에는 바꿀 수 없어요" });
   project.voice = normalizeVoice(req.body);
   save(project);
   res.json(publicView(project));
@@ -184,10 +231,10 @@ app.post("/api/projects/:id/voice/preview", loadProject, async (req, res) => {
 app.post("/api/projects/:id/render", loadProject, (req, res) => {
   const project = req.project;
   if (!project.script) return res.status(400).json({ error: "대본이 아직 없어요" });
-  if (["scripting", "rendering"].includes(project.stage)) return res.status(409).json({ error: "이미 작업 중이에요" });
-  renderProject(project).catch((err) => {
+  if (BUSY.includes(project.stage)) return res.status(409).json({ error: "이미 작업 중이에요" });
+  enqueueRender(project).catch((err) => {
     console.error(err);
-    const running = project.steps.find((s) => s.status === "running");
+    const running = project.steps?.find((s) => s.status === "running");
     if (running) running.status = "error";
     project.stage = "error";
     project.error = `영상 생성 실패: ${err.message.split("\n")[0]}`;
@@ -197,18 +244,26 @@ app.post("/api/projects/:id/render", loadProject, (req, res) => {
 });
 
 app.use((err, _req, res, _next) => {
+  if (err.code === "LIMIT_FILE_SIZE") return res.status(413).json({ error: `파일 하나는 ${config.uploadLimitMB}MB 이하만 올릴 수 있어요. 영상은 짧게 잘라서 올려주세요.` });
   console.error(err);
   res.status(500).json({ error: err.message });
 });
 
 await ensureFonts();
-const { port, host } = getConfig();
+if (config.hosted) {
+  if (!config.classCode) console.warn("⚠️  CLASS_CODE 가 없어서 링크를 아는 누구나 쓸 수 있어요. 수업 코드를 설정하세요.");
+  // 학생 사진·영상이 서버에 오래 남지 않도록 정리
+  cleanupOld(config.keepHours);
+  setInterval(() => cleanupOld(config.keepHours), 3600_000).unref();
+}
+const { port, host } = config;
 // 기본은 127.0.0.1: 이 컴퓨터에서만 접속 가능 (같은 와이파이의 다른 사람이 API 키를 쓰지 못하게)
 app.listen(port, host, () => {
   const url = `http://localhost:${port}`;
   const p = providerStatus();
   console.log(`\n🎬 브랜드 릴스 스튜디오: ${url}`);
-  console.log(`   대본: ${p.script} | 이미지: ${p.image} | 목소리: ${p.voice} | 영상: ${p.video}`);
+  console.log(`   대본: ${p.script} | 스톡: ${p.stock} | 이미지: ${p.image} | 목소리: ${p.voice} | 영상: ${p.video}`);
+  if (config.hosted) console.log(`   수업 서버 모드 · 동시 제작 ${config.renderConcurrency}편 · ${host}:${port}`);
   console.log("   끝내려면 이 창을 닫거나 Ctrl+C 를 누르세요.\n");
   if (process.env.OPEN_BROWSER === "1") openBrowser(url);
 });
