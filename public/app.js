@@ -81,6 +81,9 @@ async function refreshStatus() {
   hosted = status.hosted;
   uploadLimitMB = status.uploadLimitMB;
   renderProviders();
+  const urls = status.studentUrls || [];
+  $("#teacherBar").classList.toggle("hidden", !urls.length);
+  $("#studentUrls").textContent = urls.join("  /  ");
   // 수업 서버에서는 키를 서버에서 관리하므로 설정 버튼을 숨깁니다
   $("#settingsBtn").classList.toggle("hidden", hosted);
   if (!status.authed) return showCodeGate();

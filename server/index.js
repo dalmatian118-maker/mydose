@@ -1,6 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import crypto from "node:crypto";
+import os from "node:os";
 import { exec } from "node:child_process";
 import express from "express";
 import multer from "multer";
@@ -91,8 +92,22 @@ async function runScript(project) {
 
 const ffmpegCheck = checkFfmpeg();
 
+/** 같은 와이파이의 학생들이 접속할 주소 (예: http://192.168.0.12:3000) */
+function studentUrls() {
+  const urls = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const a of list || []) {
+      if (a.family === "IPv4" && !a.internal && !a.address.startsWith("169.254.")) urls.push(`http://${a.address}:${config.port}`);
+    }
+  }
+  return urls;
+}
+const isLocalRequest = (req) => ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(req.socket.remoteAddress);
+
 app.get("/api/status", async (req, res) => {
   res.json({
+    // 선생님 컴퓨터를 수업 서버로 쓸 때, 선생님 화면에만 학생 접속 주소를 보여줍니다
+    studentUrls: config.hosted && isLocalRequest(req) && config.host !== "127.0.0.1" ? studentUrls() : [],
     providers: providerStatus(),
     model: config.claudeModel,
     ffmpeg: await ffmpegCheck,
@@ -263,7 +278,15 @@ app.listen(port, host, () => {
   const p = providerStatus();
   console.log(`\n🎬 브랜드 릴스 스튜디오: ${url}`);
   console.log(`   대본: ${p.script} | 스톡: ${p.stock} | 이미지: ${p.image} | 목소리: ${p.voice} | 영상: ${p.video}`);
-  if (config.hosted) console.log(`   수업 서버 모드 · 동시 제작 ${config.renderConcurrency}편 · ${host}:${port}`);
+  if (config.hosted) {
+    console.log(`   수업 서버 모드 · 동시 제작 ${config.renderConcurrency}편 · ${host}:${port}`);
+    const urls = studentUrls();
+    if (urls.length && !process.env.SPACE_ID) {
+      console.log("\n   👩‍🏫 학생들은 같은 와이파이에서 아래 주소로 접속하세요:");
+      for (const u of urls) console.log(`      ${u}`);
+      console.log("");
+    }
+  }
   console.log("   끝내려면 이 창을 닫거나 Ctrl+C 를 누르세요.\n");
   if (process.env.OPEN_BROWSER === "1") openBrowser(url);
 });

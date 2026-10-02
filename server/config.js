@@ -55,7 +55,8 @@ export const HOSTED = process.env.HOSTED === "1" || Boolean(process.env.CLASS_CO
 
 export function getConfig() {
   const classSettings = HOSTED ? {} : pickSettings(readJson(CLASS_SETTINGS_FILE));
-  const get = (field, env) => (HOSTED ? process.env[env] || "" : saved[field] || classSettings[field] || process.env[env] || "");
+  // 수업 서버 모드: 서버 환경변수 우선, 없으면 이 컴퓨터에 저장해 둔 키(선생님 Mac을 서버로 쓸 때)
+  const get = (field, env) => (HOSTED ? process.env[env] || saved[field] || "" : saved[field] || classSettings[field] || process.env[env] || "");
   return {
     port: Number(process.env.PORT || 3000),
     host: process.env.HOST || (HOSTED ? "0.0.0.0" : "127.0.0.1"),

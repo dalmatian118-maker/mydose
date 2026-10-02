@@ -7,10 +7,10 @@
 스토리 입력 → ① 대본(Claude) → [학생이 확인·수정] → ② 화면(내 사진·스톡 영상) → ③ 목소리 → ④ 장면 영상 → ⑤ 자막 → ⑥ 합성 → 릴스 + 게시글 문구
 ```
 
-## 🔗 링크 하나로 수업하기 (추천 · 무료)
+## 🔗 링크 하나로 수업하기 (Hugging Face Spaces · 유료 PRO 필요)
 
 학생은 **링크를 열고 수업 코드만 입력**하면 돼요. 설치도, API 키 입력도 필요 없어요. 키는 서버에만 있어서 학생에게 보이지 않아요.
-서버는 [Hugging Face Spaces](https://huggingface.co/spaces)의 무료 CPU(2코어)를 써요.
+서버는 [Hugging Face Spaces](https://huggingface.co/spaces)를 써요. 2026년부터 새 계정은 Docker Space를 무료로 돌릴 수 없어서 **PRO(월 약 $9)**가 필요해요. 수업 후 해지하면 돼요. 무료로 하려면 아래 "선생님 컴퓨터를 수업 서버로 쓰기"를 보세요.
 
 ### 서버에 올리기 전에 내 컴퓨터에서 테스트하기
 1. **키 없이 화면 흐름 보기**: `demo-windows.bat` 또는 `demo-mac.command`를 더블클릭해요.
@@ -57,6 +57,22 @@
 **Settings → Pause Space**(또는 Delete)를 누르고, 각 서비스에서 API 키를 삭제해요.
 
 > 다른 Docker 호스팅(Railway, Render, Fly.io 등)에서도 저장소 루트의 `Dockerfile`로 똑같이 실행돼요. 환경변수는 위 표와 같아요.
+
+## 💻 선생님 컴퓨터를 수업 서버로 쓰기 (무료)
+
+학생들은 같은 와이파이에서 **선생님 컴퓨터 주소**로 접속해요. 설치는 선생님 컴퓨터에만 하면 돼요.
+
+1. **한 번만**: `start-mac.command`(Windows는 `start-windows.bat`)로 실행해서 ⚙️ 설정에 API 키를 저장하고, 창을 닫아요.
+2. **수업 때**: `class-server-mac.command`(Windows는 `class-server-windows.bat`)를 실행하고 **수업 코드**를 정해 입력해요.
+   - Mac에서 "들어오는 네트워크 연결 허용" 창이 뜨면 **허용**을 눌러요. Windows는 방화벽 창에서 **액세스 허용**을 눌러요.
+   - 이 창이 열려 있는 동안 Mac은 잠자기에 들어가지 않아요.
+3. 선생님 브라우저에서 수업 코드를 입력하면 맨 위 검은 띠에 **학생 접속 주소**(예: `http://192.168.0.12:3000`)가 크게 보여요. 프로젝터로 보여주거나 칠판에 적어주세요.
+4. 학생들은 그 주소를 열고 수업 코드를 입력하면 시작돼요.
+
+주의
+- **학교 와이파이가 기기끼리 접속을 막아두는 경우**가 있어요. 수업 전에 학생 노트북이나 휴대폰 한 대로 주소가 열리는지 꼭 확인하세요. 안 열리면 휴대폰 핫스팟이나 교실 공유기를 쓰면 돼요.
+- 영상 만들기는 선생님 컴퓨터가 처리해요. 여러 명이 동시에 만들면 차례대로 대기해요.
+- 수업이 끝나면 창을 닫아요. 학생 작업물은 `data/projects/`에 남으니 필요 없으면 지워요.
 
 ## 👩‍🏫 선생님: 각자 컴퓨터에서 쓰는 경우의 준비
 
@@ -162,6 +178,8 @@ start-windows.bat       Windows 더블클릭 실행
 start-mac.command       Mac 더블클릭 실행
 demo-windows.bat        Windows 키 없이 체험
 demo-mac.command        Mac 키 없이 체험
+class-server-mac.command      선생님 Mac을 수업 서버로
+class-server-windows.bat      선생님 Windows PC를 수업 서버로
 test/                   단위 테스트 (npm test)
 ```
 
