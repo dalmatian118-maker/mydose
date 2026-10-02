@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>브랜드 릴스 스튜디오</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="brand">🎬 브랜드 릴스 스튜디오</div>
+    <div id="providers" class="providers"></div>
+  </header>
+
+  <ol class="stepper" id="stepper">
+    <li data-step="1">스토리</li>
+    <li data-step="2">대본</li>
+    <li data-step="3">제작</li>
+    <li data-step="4">완성</li>
+  </ol>
+
+  <main>
+    <!-- 1. 스토리 입력 -->
+    <section id="step1" class="panel">
+      <h1>나의 브랜드 이야기</h1>
+      <p class="lead">브랜드를 왜, 누구를 위해 시작했는지 솔직하게 써주세요. 구체적인 장면·숫자·감정이 많을수록 진짜 같은 릴스가 나와요.</p>
+      <form id="storyForm">
+        <div class="row">
+          <label>브랜드 이름<input name="brandName" placeholder="예: 오늘비누" maxlength="40" /></label>
+          <label>누가 보면 좋을까요?<input name="audience" placeholder="예: 피부가 예민한 20대" maxlength="80" /></label>
+        </div>
+        <label>분위기</label>
+        <div class="chips" id="toneChips">
+          <button type="button" class="chip active" data-tone="진솔하고 따뜻하게">진솔·따뜻</button>
+          <button type="button" class="chip" data-tone="담백하고 차분하게">담백·차분</button>
+          <button type="button" class="chip" data-tone="밝고 유쾌하게">밝고 유쾌</button>
+          <button type="button" class="chip" data-tone="뭉클하고 감성적으로">뭉클·감성</button>
+          <button type="button" class="chip" data-tone="당당하고 자신감 있게">당당·자신감</button>
+        </div>
+        <label>브랜드 스토리 <span class="count" id="storyCount">0자</span>
+          <textarea name="story" rows="9" required minlength="30" placeholder="예) 동생이 세수만 하면 얼굴이 빨개졌어요. 시중 비누를 다 써봤지만 소용이 없어서, 새벽마다 부엌에서 직접 비누를 만들기 시작했어요..."></textarea>
+        </label>
+        <details class="tips">
+          <summary>잘 쓰는 팁</summary>
+          <ul>
+            <li><b>시작한 계기</b> — 어떤 불편, 어떤 사람 때문에 시작했나요?</li>
+            <li><b>힘들었던 순간</b> — 실패, 망설임도 좋아요. 솔직함이 신뢰를 만들어요.</li>
+            <li><b>전환점</b> — 무엇을 깨닫고 바꿨나요?</li>
+            <li><b>지금 전하고 싶은 가치</b> — 누구에게 어떤 변화를 주고 싶나요?</li>
+            <li>사실이 아닌 숫자나 후기는 쓰지 마세요. AI도 지어내지 않도록 되어 있어요.</li>
+          </ul>
+        </details>
+
+        <label>사진 · 영상 (선택, 최대 8개)</label>
+        <p class="hint">직접 찍은 사진·영상은 AI 이미지보다 훨씬 진정성 있게 보여요. 각 파일에 짧은 설명을 달면 알맞은 장면에 배치돼요.</p>
+        <label class="drop" id="drop">
+          <input type="file" id="mediaInput" accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime" multiple hidden />
+          <span>＋ 파일 선택 또는 끌어놓기</span>
+        </label>
+        <div id="mediaList" class="media-list"></div>
+
+        <label>배경음악 (선택)
+          <input type="file" name="bgm" accept="audio/*" />
+        </label>
+        <p class="hint">저작권이 없는 음악만 사용하세요. 목소리보다 작게 깔려요.</p>
+
+        <button class="primary" type="submit" id="scriptBtn">대본 만들기 →</button>
+      </form>
+    </section>
+
+    <!-- 2. 대본 확인 · 수정 -->
+    <section id="step2" class="panel hidden">
+      <div id="scriptLoading" class="loading hidden">
+        <div class="spinner"></div>
+        <p>스토리를 읽고 후킹 포인트를 찾는 중이에요… (30초~1분)</p>
+      </div>
+      <div id="scriptView" class="hidden">
+        <h1 id="scriptTitle"></h1>
+        <p class="concept" id="scriptConcept"></p>
+
+        <div class="card learn">
+          <h3>📚 왜 이렇게 구성했나요?</h3>
+          <p id="structureNotes"></p>
+        </div>
+
+        <h2>후킹 고르기 <small>첫 3초가 전부예요</small></h2>
+        <div id="hookOptions" class="hooks"></div>
+
+        <h2>장면 <small id="durationLabel"></small></h2>
+        <div class="timeline"><div id="durationBar"></div><span class="limit"></span></div>
+        <div id="scenes"></div>
+
+        <div class="card">
+          <h3>✅ 진정성 체크</h3>
+          <ul id="authCheck"></ul>
+        </div>
+
+        <div class="actions">
+          <button class="ghost" id="regenBtn">↻ 대본 다시 쓰기</button>
+          <button class="primary" id="renderBtn">이 대본으로 릴스 만들기 →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 제작 진행 -->
+    <section id="step3" class="panel hidden">
+      <h1>릴스 만드는 중</h1>
+      <ul id="progress" class="progress"></ul>
+      <ul id="warnings" class="warnings"></ul>
+    </section>
+
+    <!-- 4. 완성 -->
+    <section id="step4" class="panel hidden">
+      <h1>완성! 🎉</h1>
+      <div class="result">
+        <div class="phone"><video id="resultVideo" controls playsinline loop></video></div>
+        <div class="result-side">
+          <a class="primary" id="downloadBtn" download="reels.mp4">⬇ 영상 다운로드</a>
+          <p class="hint" id="resultInfo"></p>
+          <h3>게시글 문구</h3>
+          <textarea id="captionText" rows="8"></textarea>
+          <button class="ghost" id="copyBtn">문구 복사</button>
+          <ul id="warnings2" class="warnings"></ul>
+          <button class="ghost" id="backToScript">← 대본 고쳐서 다시 만들기</button>
+          <button class="ghost" id="newProject">새 릴스 시작</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="error" class="error hidden"></div>
+  </main>
+
+  <template id="sceneTpl">
+    <article class="scene">
+      <div class="scene-head">
+        <span class="num"></span><span class="role"></span>
+        <span class="secs"></span>
+        <button type="button" class="icon del" title="장면 삭제">✕</button>
+      </div>
+      <label>내레이션 (목소리 + 자막)<textarea data-f="narration" rows="2"></textarea></label>
+      <div class="row">
+        <label>화면 키워드<input data-f="on_screen_text" maxlength="20" /></label>
+        <label>움직임
+          <select data-f="motion">
+            <option value="zoom_in">천천히 확대</option>
+            <option value="zoom_out">천천히 축소</option>
+            <option value="pan_left">왼쪽으로 이동</option>
+            <option value="pan_right">오른쪽으로 이동</option>
+            <option value="static">거의 고정</option>
+          </select>
+        </label>
+        <label>화면 소스<select data-f="media_id"></select></label>
+      </div>
+      <label class="prompt">이미지 생성 프롬프트 (영어)<textarea data-f="image_prompt" rows="2"></textarea></label>
+    </article>
+  </template>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
