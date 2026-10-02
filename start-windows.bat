@@ -3,11 +3,17 @@ chcp 65001 > nul
 title 브랜드 릴스 스튜디오
 cd /d "%~dp0"
 
+rem 관리자 권한이 없어 Node.js를 설치할 수 없는 학교 PC용:
+rem nodejs.org에서 "Windows 바이너리(.zip)"를 받아 압축을 푼 뒤, 폴더 이름을 node 로 바꿔 이 폴더 안에 넣으면 그걸 씁니다.
+if exist "%~dp0node\node.exe" set "PATH=%~dp0node;%PATH%"
+
 where node > nul 2> nul
 if errorlevel 1 (
   echo.
-  echo [!] Node.js 가 설치되어 있지 않아요.
-  echo     열리는 페이지에서 LTS 버전을 설치한 뒤, 이 파일을 다시 실행해주세요.
+  echo [!] Node.js 가 없어요. 둘 중 하나를 해주세요.
+  echo     1^) 열리는 페이지에서 LTS 설치 파일^(.msi^)을 설치 ^(관리자 권한 필요^)
+  echo     2^) 관리자 권한이 없으면: 같은 페이지에서 "Windows 바이너리 .zip" 을 받아 압축을 풀고,
+  echo        폴더 이름을 node 로 바꿔 이 프로그램 폴더 안에 넣은 뒤 다시 실행
   start "" "https://nodejs.org/ko/download"
   pause
   exit /b 1
