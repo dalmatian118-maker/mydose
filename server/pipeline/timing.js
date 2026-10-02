@@ -1,7 +1,7 @@
 import { VIDEO } from "../config.js";
 
-const GAP_AFTER_VOICE = 0.35; // 장면 전환 전 숨 고르기
-const HOOK_GAP = 0.15; // 후킹 장면은 빠르게 넘어가도록 짧게
+const GAP_AFTER_VOICE = 0.25; // 장면 전환 전 숨 고르기 (짧을수록 템포가 빨라짐)
+const HOOK_GAP = 0.1; // 후킹 장면은 빠르게 넘어가도록 짧게
 const SAFETY = 0.4; // 30초를 넘기지 않기 위한 여유
 const MAX_TEMPO = 1.25; // 이 이상 빠르게 하면 말이 부자연스러워짐
 

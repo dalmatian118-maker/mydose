@@ -14,7 +14,11 @@ export const VOICE_OPTIONS = {
   style: { warm: "따뜻하게", calm: "차분하게", bright: "밝고 경쾌하게", strong: "힘 있게" },
 };
 
-export const DEFAULT_VOICE = { gender: "female", age: "young", style: "warm", speed: 1.0, voiceId: "", voiceName: "", ownerId: "" };
+// 릴스는 일상 대화보다 조금 빠른 말이 잘 맞아서 기본 1.1배
+const MAX_SPEED = 1.3;
+const ELEVEN_MAX_SPEED = 1.2; // ElevenLabs가 직접 받는 최대 속도. 넘는 만큼은 후처리로 빠르게
+
+export const DEFAULT_VOICE = { gender: "female", age: "young", style: "warm", speed: 1.1, voiceId: "", voiceName: "", ownerId: "" };
 
 export function normalizeVoice(v = {}) {
   const pick = (key) => (v[key] in VOICE_OPTIONS[key] ? v[key] : DEFAULT_VOICE[key]);
@@ -23,7 +27,7 @@ export function normalizeVoice(v = {}) {
     gender: pick("gender"),
     age: pick("age"),
     style: pick("style"),
-    speed: Number.isFinite(speed) ? Math.min(1.2, Math.max(0.8, speed)) : 1.0,
+    speed: Number.isFinite(speed) ? Math.min(MAX_SPEED, Math.max(0.8, speed)) : DEFAULT_VOICE.speed,
     voiceId: typeof v.voiceId === "string" ? v.voiceId.trim().slice(0, 64) : "",
     voiceName: typeof v.voiceName === "string" ? v.voiceName.slice(0, 80) : "",
     ownerId: typeof v.ownerId === "string" ? v.ownerId.trim().slice(0, 80) : "",
@@ -138,7 +142,7 @@ async function ttsElevenLabs({ text, prevText, nextText, voice, outPath }) {
       similarity_boost: 0.75,
       style: tone.style,
       use_speaker_boost: true,
-      speed: voice.speed,
+      speed: Math.min(voice.speed, ELEVEN_MAX_SPEED),
     },
   };
   if (model !== "eleven_multilingual_v2") body.language_code = "ko";
@@ -163,7 +167,7 @@ async function ttsElevenLabs({ text, prevText, nextText, voice, outPath }) {
   }
   const raw = `${outPath}.raw.mp3`;
   fs.writeFileSync(raw, Buffer.from(await res.arrayBuffer()));
-  await finalize(raw, outPath);
+  await finalize(raw, outPath, voice.speed / Math.min(voice.speed, ELEVEN_MAX_SPEED));
 }
 
 /** 목소리를 고르지 않았으면 성별·연령대 조건으로 첫 번째 한국어 목소리를 씁니다. */

@@ -136,6 +136,17 @@
         <h1 id="scriptTitle"></h1>
         <p class="concept" id="scriptConcept"></p>
 
+        <div class="card brand-color">
+          <label class="color-pick">🎨 포인트 컬러
+            <input type="color" id="pointColor" />
+          </label>
+          <div class="color-preview" id="colorPreview">
+            <span class="pv-hook" id="pvHook">후킹 문구</span>
+            <span class="pv-cap">자막 속 <b id="pvWord">강조 단어</b></span>
+          </div>
+          <p class="hint" id="colorReason"></p>
+        </div>
+
         <div class="card learn">
           <h3>📚 왜 이렇게 구성했나요?</h3>
           <p id="structureNotes"></p>
@@ -154,7 +165,7 @@
             <div><label>성별</label><div class="chips" data-voice="gender"></div></div>
             <div><label>연령대</label><div class="chips" data-voice="age"></div></div>
             <div><label>말투</label><div class="chips" data-voice="style"></div></div>
-            <div><label>말 속도 <span id="speedLabel"></span></label><input type="range" id="voiceSpeed" min="0.85" max="1.15" step="0.05" /></div>
+            <div><label>말 속도 <span id="speedLabel"></span></label><input type="range" id="voiceSpeed" min="0.9" max="1.3" step="0.05" /></div>
           </div>
           <div id="elevenPanel" class="hidden">
             <button type="button" class="ghost small" id="findVoices">이 조건으로 한국어 목소리 찾기</button>
@@ -221,7 +232,8 @@
       </div>
       <label>내레이션 (목소리 + 자막)<textarea data-f="narration" rows="2"></textarea></label>
       <div class="row">
-        <label>화면 키워드<input data-f="on_screen_text" maxlength="20" /></label>
+        <label class="kw">첫 화면 큰 문구 (후킹)<input data-f="on_screen_text" maxlength="20" /></label>
+        <label>강조 단어 (포인트 컬러)<input data-f="emphasis" maxlength="20" placeholder="내레이션 속 단어" /></label>
         <label>움직임
           <select data-f="motion">
             <option value="zoom_in">천천히 확대</option>

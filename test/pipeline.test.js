@@ -5,9 +5,9 @@ import { planTiming } from "../server/pipeline/timing.js";
 import { validateScript } from "../server/pipeline/schema.js";
 import { DEMO_SCRIPT } from "../server/pipeline/demo-script.js";
 
-test("자막은 14자 이하 조각으로 나뉘고 끝 마침표가 빠진다", () => {
+test("자막은 12자 이하 조각으로 나뉘고 끝 마침표가 빠진다", () => {
   const chunks = chunkNarration("세수만 하면 얼굴이 빨개지던 동생 때문에 시작했거든요. 정말요?");
-  assert.ok(chunks.every((c) => c.length <= 14), chunks.join("|"));
+  assert.ok(chunks.every((c) => c.length <= 12), chunks.join("|"));
   assert.equal(chunks.at(-1), "정말요?");
   assert.ok(!chunks.some((c) => c.endsWith(".")));
 });
@@ -47,22 +47,38 @@ test("업로드되지 않은 media_id는 지우고 이미지 프롬프트를 채
   assert.ok(s.scenes[0].image_prompt.length > 0);
 });
 
-test("ASS 자막에 후킹·타이틀·내레이션이 모두 들어간다", () => {
-  const s = validateScript(structuredClone(DEMO_SCRIPT));
+test("후킹 문구는 첫 장면에만, 강조 단어는 포인트 컬러로 들어간다", () => {
+  const raw = structuredClone(DEMO_SCRIPT);
+  raw.scenes[2].on_screen_text = "두 번째 문구"; // 첫 장면이 아니면 무시되어야 함
+  const s = validateScript(raw);
   const t = planTiming(s.scenes.map(() => 3), s.scenes.map((x) => x.role));
-  const ass = buildAss(s.scenes, t);
+  const ass = buildAss(s.scenes, t, { pointColor: "#7FD8BE" });
   assert.match(ass, /,Hook,,.*47개 전부 실패/);
-  assert.match(ass, /,Title,,/);
-  assert.match(ass, /,Caption,,0,0,0,,첫 비누는 전부 버렸어요/);
+  assert.doesNotMatch(ass, /두 번째 문구/);
+  assert.equal((ass.match(/,Hook,,/g) || []).length, 1);
+  assert.match(ass, /\{\\c&H00BED87F&\}전부\{\\c&H00FFFFFF&\}/); // #7FD8BE → BGR
+  assert.match(ass, /Style: Hook,.*,&H00BED87F,/);
+});
+
+test("강조 단어는 자막 조각 사이에서 끊기지 않는다", () => {
+  const chunks = chunkNarration("그래서 저희 비누엔 향이 없어요. 대신 성분은 다섯 가지뿐이에요.", 12, ["다섯 가지"]);
+  assert.ok(chunks.some((c) => c.includes("다섯 가지")), chunks.join("|"));
+});
+
+test("잘못된 포인트 컬러는 기본색으로 바뀐다", () => {
+  const raw = structuredClone(DEMO_SCRIPT);
+  raw.point_color = "red";
+  assert.equal(validateScript(raw).point_color, "#FFD400");
 });
 
 import { normalizeVoice, describeVoice } from "../server/pipeline/voice.js";
 
-test("목소리 설정은 잘못된 값을 기본값으로 고치고 속도를 0.8~1.2로 제한한다", () => {
+test("목소리 설정은 잘못된 값을 기본값으로 고치고 속도를 0.8~1.3으로 제한한다 (기본 1.1)", () => {
   const v = normalizeVoice({ gender: "robot", age: "old", style: "calm", speed: 3 });
   assert.equal(v.gender, "female");
   assert.equal(v.age, "old");
-  assert.equal(v.speed, 1.2);
+  assert.equal(v.speed, 1.3);
+  assert.equal(normalizeVoice({}).speed, 1.1);
   assert.equal(describeVoice(v), "50대 이상 여성, 차분하게");
 });
 

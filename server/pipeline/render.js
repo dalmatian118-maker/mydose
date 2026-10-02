@@ -173,7 +173,7 @@ export async function renderProject(project) {
   // 4) 자막
   step("subtitles", "running");
   const assPath = path.join(dir, "subtitles.ass");
-  fs.writeFileSync(assPath, buildAss(scenes, timing));
+  fs.writeFileSync(assPath, buildAss(scenes, timing, { pointColor: script.point_color }));
   step("subtitles", "done");
 
   // 5) 합성

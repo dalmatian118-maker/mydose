@@ -53,8 +53,28 @@ function showStep(n) {
 
 function estimateSeconds(scene) {
   const chars = scene.narration.replace(/\s/g, "").length;
-  return Math.max(1.2, chars / 6.5 + 0.2) + (scene.role === "hook" ? 0.15 : 0.35);
+  const speed = project?.voice?.speed || 1.1;
+  return Math.max(1.2, chars / 6.5 + 0.2) / speed + (scene.role === "hook" ? 0.1 : 0.25);
 }
+
+// 포인트 컬러 미리보기 (영상과 같은 규칙: 밝은 색 위엔 검은 글씨)
+function renderColor() {
+  const color = script.point_color || "#FFD400";
+  $("#pointColor").value = color;
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16) / 255);
+  const hook = $("#pvHook");
+  hook.style.background = color;
+  hook.style.color = 0.299 * r + 0.587 * g + 0.114 * b > 0.6 ? "#141414" : "#fff";
+  hook.textContent = script.scenes[0]?.on_screen_text || "후킹 문구";
+  $("#pvWord").style.color = color;
+  $("#pvWord").textContent = script.scenes.find((s) => s.emphasis)?.emphasis || "강조 단어";
+  $("#colorReason").textContent = script.point_color_reason || "";
+}
+$("#pointColor").addEventListener("input", (e) => {
+  script.point_color = e.target.value;
+  script.point_color_reason = "";
+  renderColor();
+});
 
 // ---------- 상태 표시 ----------
 let providers = {};
@@ -272,6 +292,7 @@ function renderScript() {
         scene[input.dataset.f] = input.value;
         updateScene(el, scene);
         updateDuration();
+        if (["on_screen_text", "emphasis"].includes(input.dataset.f)) renderColor();
       });
     });
     $(".del", el).addEventListener("click", () => {
@@ -279,9 +300,12 @@ function renderScript() {
       script.scenes.splice(i, 1);
       renderScript();
     });
+    // 위쪽 큰 문구는 첫 장면에만 들어가므로 다른 장면에선 숨김
+    $(".kw", el).classList.toggle("hidden", i !== 0);
     updateScene(el, scene);
     wrap.append(el);
   });
+  renderColor();
 
   $("#authCheck").innerHTML = "";
   script.authenticity_check.forEach((t) => {
@@ -400,7 +424,13 @@ document.querySelectorAll("[data-voice]").forEach((wrap) =>
     if (chip) changeVoice({ [wrap.dataset.voice]: chip.dataset.value });
   }),
 );
-$("#voiceSpeed").addEventListener("input", (e) => changeVoice({ speed: Number(e.target.value) }));
+$("#voiceSpeed").addEventListener("input", (e) => {
+  changeVoice({ speed: Number(e.target.value) });
+  if (script) {
+    document.querySelectorAll("#scenes .scene").forEach((el, i) => ($(".secs", el).textContent = `약 ${estimateSeconds(script.scenes[i]).toFixed(1)}초`));
+    updateDuration();
+  }
+});
 
 $("#findVoices").addEventListener("click", async () => {
   const btn = $("#findVoices");

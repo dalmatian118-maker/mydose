@@ -62,7 +62,12 @@ export const SYSTEM_PROMPT = `당신은 한국 인스타그램 릴스 전문 숏
 - image_prompt는 스톡 영상 대신 AI 이미지를 만들 때 쓴다. image_prompt는 영어로, 세로 9:16 구도, 사람이 찍은 듯한 자연스러운 사진 느낌(handheld, natural light, candid). 화면 안에 글자를 넣지 말 것(no text, no letters, no logo).
 - visual_style은 모든 장면에 공통으로 붙일 영어 스타일 문장 (색감, 조명, 질감) — 장면 간 통일감을 위해.
 - motion은 장면 분위기에 맞게: 긴장/집중 zoom_in, 여운 zoom_out, 시간 흐름 pan_left/pan_right.
-- on_screen_text는 장면의 핵심 키워드 2~12자, 필요 없으면 빈 문자열. 내레이션 자막은 따로 자동 생성되므로 내레이션을 반복하지 않는다.
+- on_screen_text(화면 위쪽 큰 문구)는 첫 장면(후킹)에만 쓴다. 2~12자, 내레이션을 그대로 반복하지 말고 핵심만. 나머지 장면은 빈 문자열 (내레이션 자막이 아래에 자동으로 들어가므로).
+- emphasis는 각 장면 내레이션에서 가장 중요한 단어 하나(내레이션에 실제로 있는 그대로, 2~6자). 자막에서 포인트 컬러로 강조된다. 없으면 빈 문자열.
+
+# 7. 포인트 컬러
+- point_color는 브랜드 컨셉과 분위기를 대표하는 색 하나(#RRGGBB). 어두운 영상 위에서도 잘 보이는 선명한 색으로 (너무 어둡거나 회색에 가까운 색 금지).
+- 후킹 문구 박스와 자막 강조 단어에 쓰인다. 왜 이 색인지 point_color_reason에 한 문장으로.
 
 # 6. 교육용 설명
 - structure_notes: 왜 이 후킹과 구조를 골랐는지 학생이 배울 수 있게 3~5문장으로 설명.
@@ -75,7 +80,7 @@ export const SYSTEM_PROMPT = `당신은 한국 인스타그램 릴스 전문 숏
 export const SCRIPT_JSON_SCHEMA = {
   type: "object",
   additionalProperties: false,
-  required: ["title", "concept", "hook_options", "structure_notes", "visual_style", "voice_tone", "scenes", "caption", "hashtags", "authenticity_check"],
+  required: ["title", "concept", "hook_options", "structure_notes", "visual_style", "point_color", "point_color_reason", "voice_tone", "scenes", "caption", "hashtags", "authenticity_check"],
   properties: {
     title: { type: "string", description: "릴스 제목 (내부 관리용)" },
     concept: { type: "string", description: "이 릴스가 전하는 한 줄 메시지" },
@@ -96,17 +101,20 @@ export const SCRIPT_JSON_SCHEMA = {
     },
     structure_notes: { type: "string" },
     visual_style: { type: "string" },
+    point_color: { type: "string", description: "브랜드 포인트 컬러 #RRGGBB" },
+    point_color_reason: { type: "string" },
     voice_tone: { type: "string", description: "목소리 톤 지시 (예: 차분하고 따뜻한 20대 창업자, 친구에게 말하듯)" },
     scenes: {
       type: "array",
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["role", "narration", "on_screen_text", "media_id", "stock_query", "image_prompt", "motion", "est_seconds"],
+        required: ["role", "narration", "on_screen_text", "emphasis", "media_id", "stock_query", "image_prompt", "motion", "est_seconds"],
         properties: {
           role: { type: "string", enum: Object.keys(SCENE_ROLES) },
           narration: { type: "string" },
           on_screen_text: { type: "string" },
+          emphasis: { type: "string", description: "자막에서 포인트 컬러로 강조할 단어 (내레이션 속 그대로)" },
           media_id: { type: "string", description: "학생 업로드 미디어 ID (예: m1). 없으면 빈 문자열" },
           stock_query: { type: "string", description: "스톡 영상 검색어 (영어 2~4단어)" },
           image_prompt: { type: "string", description: "AI 이미지를 만들 때 쓸 프롬프트 (영어)" },

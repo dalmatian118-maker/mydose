@@ -175,3 +175,11 @@ code { background: var(--bg); padding: 0 4px; border-radius: 4px; }
 .teacher-bar { background: #1d1b19; color: #fff; padding: 12px 20px; font-weight: 700; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
 .teacher-bar #studentUrls { font-size: 22px; color: #ffd700; letter-spacing: 0.5px; }
 .teacher-bar small { font-weight: 400; opacity: 0.7; }
+
+.brand-color { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.brand-color .hint { flex-basis: 100%; margin: 0; }
+.color-pick { display: flex; align-items: center; gap: 10px; margin: 0; }
+.color-pick input { width: 48px; height: 36px; padding: 2px; margin: 0; cursor: pointer; }
+.color-preview { display: flex; align-items: center; gap: 12px; background: #2a2622; border-radius: 10px; padding: 10px 14px; }
+.pv-hook { font-weight: 900; padding: 2px 10px; }
+.pv-cap { color: #fff; font-weight: 700; }
