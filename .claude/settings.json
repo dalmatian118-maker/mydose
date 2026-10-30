@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "k-style-ui-ux": {
+      "source": {
+        "source": "github",
+        "repo": "vmc-inner-circle/k-style-ui-ux"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "k-style-ui-ux@k-style-ui-ux": true
+  }
+}
